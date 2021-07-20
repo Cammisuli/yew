@@ -1,9 +1,6 @@
-use crate::{
-    content::Post,
-    generator::Generated,
-    switch::{AppAnchor, AppRoute},
-};
+use crate::{content::PostMeta, generator::Generated, Route};
 use yew::prelude::*;
+use yew_router::components::Link;
 
 #[derive(Clone, Debug, PartialEq, Properties)]
 pub struct Props {
@@ -11,7 +8,7 @@ pub struct Props {
 }
 
 pub struct PostCard {
-    post: Post,
+    post: PostMeta,
 }
 impl Component for PostCard {
     type Message = ();
@@ -19,7 +16,7 @@ impl Component for PostCard {
 
     fn create(props: Self::Properties, _link: ComponentLink<Self>) -> Self {
         Self {
-            post: Post::generate_from_seed(props.seed),
+            post: PostMeta::generate_from_seed(props.seed),
         }
     }
 
@@ -31,7 +28,7 @@ impl Component for PostCard {
         if self.post.seed == props.seed {
             false
         } else {
-            self.post = Post::generate_from_seed(props.seed);
+            self.post = PostMeta::generate_from_seed(props.seed);
             true
         }
     }
@@ -42,16 +39,16 @@ impl Component for PostCard {
             <div class="card">
                 <div class="card-image">
                     <figure class="image is-2by1">
-                        <img src={ &post.image_url } loading="lazy" />
+                        <img src={post.image_url.clone()} loading="lazy" />
                     </figure>
                 </div>
                 <div class="card-content">
-                    <AppAnchor classes="title is-block" route=AppRoute::Post(post.seed)>
+                    <Link<Route> classes={classes!("title", "is-block")} route={Route::Post { id: post.seed }}>
                         { &post.title }
-                    </AppAnchor>
-                    <AppAnchor classes="subtitle is-block" route=AppRoute::Author(post.author.seed)>
+                    </Link<Route>>
+                    <Link<Route> classes={classes!("subtitle", "is-block")} route={Route::Author { id: post.author.seed }}>
                         { &post.author.name }
-                    </AppAnchor>
+                    </Link<Route>>
                 </div>
             </div>
         }

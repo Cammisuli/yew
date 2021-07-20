@@ -39,8 +39,8 @@ impl Component for Model {
         html! {
             <div>
                 <input
-                    value=&self.name
-                    oninput=self.link.callback(|e: InputData| Msg::UpdateName(e.value))
+                    value={self.name.clone()}
+                    oninput={self.link.callback(|e: InputData| Msg::UpdateName(e.value))}
                 />
                 <p>{ self.name.chars().rev().collect::<String>() }</p>
             </div>
@@ -61,7 +61,6 @@ fn create_canvas(document: &Document) -> HtmlCanvasElement {
 }
 
 fn main() {
-    yew::initialize();
     let document = yew::utils::document();
     let body = document.query_selector("body").unwrap().unwrap();
 
@@ -75,8 +74,5 @@ fn main() {
 
     body.append_child(&mount_point).unwrap();
 
-    yew::App::<Model>::new().mount(mount_point);
-
-    // only required for stdweb
-    yew::run_loop();
+    yew::start_app_in_element::<Model>(mount_point);
 }

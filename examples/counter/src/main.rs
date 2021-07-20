@@ -1,7 +1,8 @@
 use js_sys::Date;
-use yew::services::ConsoleService;
+use weblog::console_log;
 use yew::{html, Component, ComponentLink, Html, ShouldRender};
 
+// Define the possible messages which can be sent to the component
 pub enum Msg {
     Increment,
     Decrement,
@@ -9,7 +10,7 @@ pub enum Msg {
 
 pub struct Model {
     link: ComponentLink<Self>,
-    value: i64,
+    value: i64, // This will store the counter value
 }
 
 impl Component for Model {
@@ -24,12 +25,12 @@ impl Component for Model {
         match msg {
             Msg::Increment => {
                 self.value += 1;
-                ConsoleService::log("plus one");
-                true
+                console_log!("plus one"); // Will output a string to the browser console
+                true // Return true to cause the displayed change to update
             }
             Msg::Decrement => {
                 self.value -= 1;
-                ConsoleService::log("minus one");
+                console_log!("minus one");
                 true
             }
         }
@@ -42,23 +43,32 @@ impl Component for Model {
     fn view(&self) -> Html {
         html! {
             <div>
-                <nav class="menu">
-                    <button onclick=self.link.callback(|_| Msg::Increment)>
-                        { "Increment" }
+                <div class="panel">
+                    // A button to send the Increment message
+                    <button class="button" onclick={self.link.callback(|_| Msg::Increment)}>
+                        { "+1" }
                     </button>
-                    <button onclick=self.link.callback(|_| Msg::Decrement)>
-                        { "Decrement" }
+
+                    // A button to send the Decrement message
+                    <button onclick={self.link.callback(|_| Msg::Decrement)}>
+                        { "-1" }
                     </button>
-                    <button onclick=self.link.batch_callback(|_| vec![Msg::Increment, Msg::Increment])>
-                        { "Increment Twice" }
+
+                    // A button to send two Increment messages
+                    <button onclick={self.link.batch_callback(|_| vec![Msg::Increment, Msg::Increment])}>
+                        { "+1, +1" }
                     </button>
-                </nav>
-                <p>
-                    <b>{ "Current value: " }</b>
+
+                </div>
+
+                // Display the current value of the counter
+                <p class="counter">
                     { self.value }
                 </p>
-                <p>
-                    <b>{ "Rendered at: " }</b>
+
+                // Display the current date and time the page was rendered
+                <p class="footer">
+                    { "Rendered: " }
                     { String::from(Date::new_0().to_string()) }
                 </p>
             </div>
