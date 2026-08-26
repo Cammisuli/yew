@@ -2,12 +2,22 @@
 name = "keyed_list"
 version = "0.1.0"
 authors = ["Thomas Lacroix <toto.rigolo@free.fr>"]
-edition = "2018"
+edition = "2024"
+rust-version.workspace = true
+license = "MIT OR Apache-2.0"
 
 [dependencies]
-log = "0.4"
-instant = { version = "0.1", features = ["wasm-bindgen"] }
-rand = { version = "0.7", features = ["wasm-bindgen"] }
-wasm-logger = "0.2"
-yew = { path = "../../yew" }
-yewtil = { path = "../../yewtil" }
+fake = "5"
+getrandom = { workspace = true }
+instant = { workspace = true }
+log.workspace = true
+rand.workspace = true
+wasm-logger.workspace = true
+yew = { path = "../../packages/yew", features = ["csr"] }
+
+[dependencies.web-sys]
+workspace = true
+features = [
+    "HtmlElement",
+    "HtmlInputElement",
+]

@@ -1,143 +1,130 @@
-This website was created with [Docusaurus](https://docusaurus.io/).
+# Website
 
-# What's In This Document
+This website is built using [Docusaurus 2](https://docusaurus.io/), a modern static website generator.
 
-- [Get Started in 5 Minutes](#get-started-in-5-minutes)
-- [Directory Structure](#directory-structure)
-- [Editing Content](#editing-content)
-- [Adding Content](#adding-content)
-- [Full Documentation](#full-documentation)
+Most of the content sits inside the [docs](docs) folder and the [versioned_docs](versioned_docs) folder in the form of
+markdown.
 
-# Get Started in 5 Minutes
+## Installation
 
-1. Make sure all the dependencies for the website are installed:
-
-```sh
-# Install dependencies
-$ npm install
+```console
+npm install
 ```
 
-2. Run your dev server:
+## Local Development
 
-```sh
-# Start the site
-$ npm start
+```console
+npm start
 ```
 
-## Directory Structure
+This command starts a local development server and opens up a browser window. Most changes are reflected live
+without having to restart the server.
+Note this only builds for English locale unlike a production build.
 
-Your project file structure should look something like this
+> Documentation is written in `mdx`, a superset of markdown empowered with jsx.
+> JetBrains and VSCode both provide MDX plugins.
 
-```
-yew/
-  docs/
-  website/
-    core/
-    node_modules/
-    static/
-      css/
-      img/
-    package.json
-    sidebars.json
-    siteConfig.js
+## Testing
+
+```console
+cargo make website-test
 ```
 
-# Editing Content
+[`website-test`](../tools/website-test) is a tool to test all code blocks in the docs as Rust doctests.
+It gathers the Rust code blocks automatically, but by default they're all tested separate. In case of a 
+walkthrough, it makes more sense to combine the changes described in the blocks & test the code as one.
+For this end `website-test` scans all doc files for a special flag:
 
-## Editing an existing docs page
-
-Edit docs by navigating to `docs/` and editing the corresponding document:
-
-`docs/doc-to-be-edited.md`
-
-```markdown
----
-id: page-needs-edit
-title: This Doc Needs To Be Edited
----
-
-Edit me...
+```html
+<!-- COMBINE CODE BLOCKS -->
 ```
-
-For more information about docs, click [here](https://docusaurus.io/docs/en/navigation)
-
-# Adding Content
-
-## Adding a new docs page to an existing sidebar
-
-1. Create the doc as a new markdown file in `/docs`, example `docs/newly-created-doc.md`:
+If a file ends with this specific comment (and an optional newline after it), all code blocks will be
+sown together, with respect to the diff markers in them. For example:
 
 ```md
----
-id: newly-created-doc
-title: This Doc Needs To Be Edited
----
+\`\`\`rust
+fn main() {
+    println!("Hello, World");
+}
+\`\`\`
 
-My new content here..
+\`\`\`rust
+fn main() {
+-   println!("Hello, World");
++   println!("Goodbye, World");
+}
+\`\`\`
+
+<!-- COMBINE CODE BLOCKS -->
 ```
 
-1. Refer to that doc's ID in an existing sidebar in `website/sidebars.json`:
-
-```javascript
-// Add newly-created-doc to the Getting Started category of docs
-{
-  "docs": {
-    "Getting Started": [
-      "quick-start",
-      "newly-created-doc" // new doc here
-    ],
-    ...
-  },
-  ...
+Will be tested as:
+```rust
+fn main() {
+    println!("Goodbye, World");
 }
 ```
 
-For more information about adding new docs, click [here](https://docusaurus.io/docs/en/navigation)
+:::warning
+The current implementation only uses the code before the diff or the code to remove as context,
+so make sure there's enough of it. The test assembler will tell you if there isn't.
+:::
 
-## Adding items to your site's top navigation bar
+While assembling the code blocks, the test assembler will put special meaning into a code
+line `// ...`. This line tells the test assembler to disregard any previous context for applying a diff
 
-1. Add links to docs, custom pages or external links by editing the headerLinks field of `website/siteConfig.js`:
+## Production Build
 
-`website/siteConfig.js`
-
-```javascript
-{
-  headerLinks: [
-    ...
-    /* you can add docs */
-    { doc: 'my-examples', label: 'Examples' },
-    /* you can add custom pages */
-    { page: 'help', label: 'Help' },
-    /* you can add external links */
-    { href: 'https://github.com/facebook/docusaurus', label: 'GitHub' },
-    ...
-  ],
-  ...
-}
+```console
+npm run build
 ```
 
-For more information about the navigation bar, click [here](https://docusaurus.io/docs/en/navigation)
+This command generates static content into the `build` directory and can be served using any static contents hosting service.
 
-## Adding custom pages
+## Localization
 
-1. Docusaurus uses React components to build pages. The components are saved as .js files in `website/pages/en`:
-1. If you want your page to show up in your navigation header, you will need to update `website/siteConfig.js` to add to the `headerLinks` element:
+Localization is done on [GitLocalize](https://gitlocalize.com/repo/7052/whole_project).
+You can sign in with your GitHub account to start translating.
 
-`website/siteConfig.js`
+When you add to the docs in the `mdx` files,  
+Contributors on GitLocalize will translate the added content
+and the translation will get dumped under the [i18n](i18n) folder in a later time.
 
-```javascript
-{
-  headerLinks: [
-    ...
-    { page: 'my-new-custom-page', label: 'My New Custom Page' },
-    ...
-  ],
-  ...
-}
+If you are a native speaker of one of the translated languages,
+and you are interested in translating your edits yourself,
+you are welcome to navigate to the folder and do it yourself!
+
+### Localizing headings
+
+If you want to write displayed content in `html/jsx` instead of vanilla markdown,
+You should wrap your text in `<Translate/>` tags.
+It helps docusaurus to extract those texts and compile them to `.json` files to
+get further translated in GitLocalize.
+
+```jsx
+import Translate from '@docusaurus/Translate'
+
+<h2>
+    <Translate id="header.translation.id" description="the heading description">
+        This heading will be translated
+    </Translate>
+</h2>
 ```
 
-For more information about custom pages, click [here](https://docusaurus.io/docs/en/custom-pages).
+If your pull request adds new `<Translation>` tags,
+make sure you do `npm run write-translations` to generate the new stubs for later localization.
+And you are always welcome to add localization yourself in your native languages!
 
-# Full Documentation
+### Common issues in localization
 
-Full documentation can be found on the [website](https://docusaurus.io/).
+Pages (.mdx) are translated one-to-one and the english text is used as fallback if no translation
+exists. Sometimes, when building you might see a warning, and subsequent error,
+like this
+
+> [WARNING] Docs markdown link couldn't be resolved: (../components/refs.mdx) in
+> <omitted>/yew/website/versioned_docs/version-0.18.0/concepts/html/events.mdx for version 0.18.0
+
+This means that the _non-translated_ page at `versioned_docs/version-0.18.0/concepts/html/events.mdx`
+contains a relative link - `../components/refs.mdx` - to a page that _has_ been translated.
+Change the link to be relative to the doc root folder, in this case `concepts/components/res.mdx`, or,
+if you find the time, also translate the offending page.

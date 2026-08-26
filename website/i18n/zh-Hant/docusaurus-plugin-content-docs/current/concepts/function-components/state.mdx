@@ -1,0 +1,83 @@
+---
+title: '狀態'
+---
+
+## 如何儲存狀態的一般視圖
+
+這個表格可以作為一個指南，幫助您決定哪種狀態儲存類型最適合您的用例：
+
+| Hook             | 類型                       | 何時渲染?                        | 作用域                   |
+| ---------------- | -------------------------- | -------------------------------- | ------------------------ |
+| [use_state]      | `T`                        | 被設定一個值                     | 組件內部實例             |
+| [use_state_eq]   | `T: PartialEq`             | 被設定一個不同的值               | 組件內部實例             |
+| [use_reducer]    | `T: Reducible`             | 被呼叫歸納                       | 組件內部實例             |
+| [use_reducer_eq] | `T: Reducible + PartialEq` | 被呼叫歸納，歸納後的值與之前不同 | 組件內部實例             |
+| [use_memo]       | `Deps -> T`                | 依賴項發生變化                   | 組件內部實例             |
+| [use_callback]   | `Deps -> Callback<E>`      | 依賴項發生變化                   | 組件內部實例             |
+| [use_mut_ref]    | `T`                        | -                                | 組件內部實例             |
+| 全域靜態常數     | `T`                        | -                                | 全域，任何位置都可以使用 |
+
+## 存取句柄內部
+
+`UseStateHandle` 和 `UseReducerHandle` 都提供了直接存取其內部組成部分的方法。
+
+### `value_rc()`
+
+以 `Rc<T>` 的形式回傳當前值。與對句柄解參考（回傳繫結到句柄生命週期的 `&T`）不同，
+`value_rc()` 回傳一個擁有所有權的 `Rc<T>`，可以移動到閉包中或獨立儲存。
+
+```rust
+# use std::rc::Rc;
+# use yew::prelude::*;
+# #[component]
+# fn Comp() -> Html {
+let counter = use_state(|| 0);
+let rc_value: Rc<i32> = counter.value_rc();
+# html! {}
+# }
+```
+
+### `into_inner()`
+
+消耗句柄並回傳其兩個組成部分：當前值（`Rc<T>`）和 setter/dispatcher。
+當你想要在不克隆整個句柄的情況下將讀取與寫入分離時，這非常有用。
+
+對於 `UseReducerHandle`，回傳類型為 `(Rc<T>, UseReducerDispatcher<T>)`：
+
+```rust
+# use std::rc::Rc;
+# use yew::prelude::*;
+# #[derive(Default, PartialEq)]
+# struct CounterState { counter: i32 }
+# impl Reducible for CounterState {
+#     type Action = ();
+#     fn reduce(self: Rc<Self>, _: ()) -> Rc<Self> { self }
+# }
+# #[component]
+# fn Comp() -> Html {
+let state = use_reducer(CounterState::default);
+let (value, dispatcher) = state.into_inner();
+# html! {}
+# }
+```
+
+對於 `UseStateHandle`，回傳類型為 `(Rc<T>, UseStateSetter<T>)`：
+
+```rust
+# use std::rc::Rc;
+# use yew::prelude::*;
+# #[component]
+# fn Comp() -> Html {
+let state = use_state(|| 0);
+let (value, setter) = state.into_inner();
+# html! {}
+# }
+```
+
+[use_state]: https://yew-rs-api.web.app/next/yew/functional/fn.use_state.html
+[use_state_eq]: https://yew-rs-api.web.app/next/yew/functional/fn.use_state_eq.html
+[use_reducer]: https://yew-rs-api.web.app/next/yew/functional/fn.use_reducer.html
+[use_reducer_eq]: https://yew-rs-api.web.app/next/yew/functional/fn.use_reducer_eq.html
+[use_memo]: https://yew-rs-api.web.app/next/yew/functional/fn.use_memo.html
+[use_callback]: https://yew-rs-api.web.app/next/yew/functional/fn.use_callback.html
+[use_mut_ref]: https://yew-rs-api.web.app/next/yew/functional/fn.use_mut_ref.html

@@ -10,10 +10,18 @@ You can manually toggle cells by clicking on them or create a random layout by p
 This example is quite resource intensive; it's recommended that you only use it with the `--release` flag:
 
 ```bash
-trunk serve --release
+RUSTFLAGS='--cfg getrandom_backend="wasm_js"' trunk serve --release
 ```
 
 ## Concepts
 
-Uses `IntervalService` to automatically step the simulation.
-Logs to the console using the [`log`](https://crates.io/crates/log) crate with the [`wasm_logger`](https://crates.io/crates/wasm-logger) adapter.
+- Uses [`gloo_timer`](https://docs.rs/gloo-timers/latest/gloo_timers/) to automatically step the simulation.
+- Logs to the console using the [`weblog`](https://crates.io/crates/weblog) crate.
+
+## Running
+
+Run this application with the trunk development server:
+
+```bash
+RUSTFLAGS='--cfg getrandom_backend="wasm_js"' trunk serve --open
+```

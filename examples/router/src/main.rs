@@ -1,37 +1,53 @@
 use yew::prelude::*;
-use yew_router::{route::Route, switch::Permissive};
+use yew_router::prelude::*;
 
 mod components;
 mod content;
 mod generator;
 mod pages;
-use pages::{
-    author::Author, author_list::AuthorList, home::Home, page_not_found::PageNotFound, post::Post,
-    post_list::PostList,
-};
-mod switch;
-use switch::{AppAnchor, AppRoute, AppRouter, PublicUrlSwitch};
+use pages::author::Author;
+use pages::author_list::AuthorList;
+use pages::home::Home;
+use pages::page_not_found::PageNotFound;
+use pages::post::Post;
+use pages::post_list::PostList;
+use yew::html::Scope;
+
+#[derive(Routable, PartialEq, Eq, Clone, Debug)]
+pub enum Route {
+    #[at("/posts/{id}")]
+    Post { id: u64 },
+    #[at("/posts")]
+    Posts,
+    #[at("/authors/{id}")]
+    Author { id: u64 },
+    #[at("/authors")]
+    Authors,
+    #[at("/")]
+    Home,
+    #[not_found]
+    #[at("/404")]
+    NotFound,
+}
 
 pub enum Msg {
     ToggleNavbar,
 }
 
-pub struct Model {
-    link: ComponentLink<Self>,
+pub struct App {
     navbar_active: bool,
 }
-impl Component for Model {
+impl Component for App {
     type Message = Msg;
     type Properties = ();
 
-    fn create(_props: Self::Properties, link: ComponentLink<Self>) -> Self {
+    fn create(_ctx: &Context<Self>) -> Self {
         Self {
-            link,
             navbar_active: false,
         }
     }
 
-    fn update(&mut self, msg: Self::Message) -> ShouldRender {
+    fn update(&mut self, _ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
             Msg::ToggleNavbar => {
                 self.navbar_active = !self.navbar_active;
@@ -40,22 +56,13 @@ impl Component for Model {
         }
     }
 
-    fn change(&mut self, _props: Self::Properties) -> ShouldRender {
-        false
-    }
-
-    fn view(&self) -> Html {
+    fn view(&self, ctx: &Context<Self>) -> Html {
         html! {
-            <>
-                { self.view_nav() }
+            <BrowserRouter>
+                { self.view_nav(ctx.link()) }
 
                 <main>
-                    <AppRouter
-                        render=AppRouter::render(Self::switch)
-                        redirect=AppRouter::redirect(|route: Route| {
-                            AppRoute::PageNotFound(Permissive(Some(route.route))).into_public()
-                        })
-                    />
+                    <Switch<Route> render={switch} />
                 </main>
                 <footer class="footer">
                     <div class="content has-text-centered">
@@ -63,58 +70,49 @@ impl Component for Model {
                         <a href="https://yew.rs">{ "Yew" }</a>
                         { " using " }
                         <a href="https://bulma.io">{ "Bulma" }</a>
-                        { " and images from " }
-                        <a href="https://unsplash.com">{ "Unsplash" }</a>
                     </div>
                 </footer>
-            </>
+            </BrowserRouter>
         }
     }
 }
-impl Model {
-    fn view_nav(&self) -> Html {
-        let Self {
-            ref link,
-            navbar_active,
-            ..
-        } = *self;
+impl App {
+    fn view_nav(&self, link: &Scope<Self>) -> Html {
+        let Self { navbar_active, .. } = *self;
 
-        let active_class = if navbar_active { "is-active" } else { "" };
+        let active_class = if !navbar_active { "is-active" } else { "" };
 
         html! {
             <nav class="navbar is-primary" role="navigation" aria-label="main navigation">
                 <div class="navbar-brand">
                     <h1 class="navbar-item is-size-3">{ "Yew Blog" }</h1>
 
-                    <a role="button"
-                        class=("navbar-burger", "burger", active_class)
+                    <button class={classes!("navbar-burger", "burger", active_class)}
                         aria-label="menu" aria-expanded="false"
-                        onclick=link.callback(|_| Msg::ToggleNavbar)
+                        onclick={link.callback(|_| Msg::ToggleNavbar)}
                     >
                         <span aria-hidden="true"></span>
                         <span aria-hidden="true"></span>
                         <span aria-hidden="true"></span>
-                    </a>
+                    </button>
                 </div>
-                <div class=("navbar-menu", active_class)>
+                <div class={classes!("navbar-menu", active_class)}>
                     <div class="navbar-start">
-                        <AppAnchor classes="navbar-item" route=AppRoute::Home>
+                        <Link<Route> classes={classes!("navbar-item")} to={Route::Home}>
                             { "Home" }
-                        </AppAnchor>
-                        <AppAnchor classes="navbar-item" route=AppRoute::PostList>
+                        </Link<Route>>
+                        <Link<Route> classes={classes!("navbar-item")} to={Route::Posts}>
                             { "Posts" }
-                        </AppAnchor>
+                        </Link<Route>>
 
                         <div class="navbar-item has-dropdown is-hoverable">
-                            <a class="navbar-link">
+                            <div class="navbar-link">
                                 { "More" }
-                            </a>
+                            </div>
                             <div class="navbar-dropdown">
-                                <a class="navbar-item">
-                                    <AppAnchor classes="navbar-item" route=AppRoute::AuthorList>
-                                        { "Meet the authors" }
-                                    </AppAnchor>
-                                </a>
+                                <Link<Route> classes={classes!("navbar-item")} to={Route::Authors}>
+                                    { "Meet the authors" }
+                                </Link<Route>>
                             </div>
                         </div>
                     </div>
@@ -122,35 +120,22 @@ impl Model {
             </nav>
         }
     }
+}
 
-    fn switch(switch: PublicUrlSwitch) -> Html {
-        match switch.route() {
-            AppRoute::Post(id) => {
-                html! { <Post seed=id /> }
-            }
-            AppRoute::PostListPage(page) => {
-                html! { <PostList page=page.max(1) /> }
-            }
-            AppRoute::PostList => {
-                html! { <PostList page=1 /> }
-            }
-            AppRoute::Author(id) => {
-                html! { <Author seed=id /> }
-            }
-            AppRoute::AuthorList => {
-                html! { <AuthorList /> }
-            }
-            AppRoute::Home => {
-                html! { <Home /> }
-            }
-            AppRoute::PageNotFound(Permissive(route)) => {
-                html! { <PageNotFound route=route /> }
-            }
+fn switch(routes: Route) -> Html {
+    html! {
+        match routes {
+            Route::Post { id } => <Post seed={id} />,
+            Route::Posts => <PostList />,
+            Route::Author { id } => <Author seed={id} />,
+            Route::Authors => <AuthorList />,
+            Route::Home => <Home />,
+            Route::NotFound => <PageNotFound />,
         }
     }
 }
 
 fn main() {
     wasm_logger::init(wasm_logger::Config::new(log::Level::Trace));
-    yew::start_app::<Model>();
+    yew::Renderer::<App>::new().render();
 }

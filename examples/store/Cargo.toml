@@ -1,9 +1,0 @@
-[package]
-name = "store"
-version = "0.1.0"
-authors = ["Michał Kawalec <michal@monad.cat>"]
-edition = "2018"
-
-[dependencies]
-yew = { path = "../../yew" }
-yewtil = { path = "../../yewtil" }

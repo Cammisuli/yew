@@ -7,15 +7,18 @@ use std::cell::RefCell;
 use std::fmt;
 use std::ops::Deref;
 use std::rc::Rc;
-use yew::html::{Component, ComponentLink};
 
-pub struct WeakComponentLink<COMP: Component>(Rc<RefCell<Option<ComponentLink<COMP>>>>);
+use yew::html::{ImplicitClone, IntoPropValue, Scope};
+use yew::prelude::*;
+
+pub struct WeakComponentLink<COMP: Component>(Rc<RefCell<Option<Scope<COMP>>>>);
 
 impl<COMP: Component> Clone for WeakComponentLink<COMP> {
     fn clone(&self) -> Self {
         Self(Rc::clone(&self.0))
     }
 }
+impl<COMP: Component> ImplicitClone for WeakComponentLink<COMP> {}
 
 impl<COMP: Component> Default for WeakComponentLink<COMP> {
     fn default() -> Self {
@@ -24,7 +27,7 @@ impl<COMP: Component> Default for WeakComponentLink<COMP> {
 }
 
 impl<COMP: Component> Deref for WeakComponentLink<COMP> {
-    type Target = Rc<RefCell<Option<ComponentLink<COMP>>>>;
+    type Target = Rc<RefCell<Option<Scope<COMP>>>>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -37,10 +40,10 @@ impl<COMP: Component> PartialEq for WeakComponentLink<COMP> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, ImplicitClone, PartialEq, Eq, Hash)]
 pub enum Hovered {
     Header,
-    Item(String),
+    Item(AttrValue),
     List,
     None,
 }
@@ -60,7 +63,13 @@ impl fmt::Display for Hovered {
     }
 }
 
+impl IntoPropValue<Html> for &Hovered {
+    fn into_prop_value(self) -> Html {
+        html! {self.to_string()}
+    }
+}
+
 fn main() {
     wasm_logger::init(wasm_logger::Config::default());
-    yew::start_app::<app::App>();
+    yew::Renderer::<app::App>::new().render();
 }

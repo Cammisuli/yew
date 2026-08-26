@@ -1,7 +1,6 @@
-use std::time::Duration;
-use yew::services::interval::{IntervalService, IntervalTask};
-use yew::services::{ConsoleService, Task, TimeoutService};
-use yew::{html, Callback, Component, ComponentLink, Html, ShouldRender};
+use gloo::console::{self, Timer};
+use gloo::timers::callback::{Interval, Timeout};
+use yew::prelude::*;
 
 pub enum Msg {
     StartTimeout,
@@ -9,114 +8,152 @@ pub enum Msg {
     Cancel,
     Done,
     Tick,
+    UpdateTime,
 }
 
-pub struct Model {
-    link: ComponentLink<Self>,
-    job: Option<Box<dyn Task>>,
-    messages: Vec<&'static str>,
-    _standalone: IntervalTask,
+pub struct App {
+    time: String,
+    messages: Vec<AttrValue>,
+    _standalone: (Interval, Interval),
+    interval: Option<Interval>,
+    timeout: Option<Timeout>,
+    console_timer: Option<Timer<'static>>,
 }
 
-impl Component for Model {
+impl App {
+    fn get_current_time() -> String {
+        let date = js_sys::Date::new_0();
+        String::from(date.to_locale_time_string("en-US"))
+    }
+
+    fn cancel(&mut self) {
+        self.timeout = None;
+        self.interval = None;
+    }
+}
+
+impl Component for App {
     type Message = Msg;
     type Properties = ();
 
-    fn create(_props: Self::Properties, link: ComponentLink<Self>) -> Self {
-        let handle = IntervalService::spawn(
-            Duration::from_secs(10),
-            // This callback doesn't send any message to a scope
-            Callback::from(|_| {
-                ConsoleService::debug("Example of a standalone callback.");
-            }),
-        );
+    fn create(ctx: &Context<Self>) -> Self {
+        let standalone_handle = Interval::new(10, || {
+            console::debug!("Example of a standalone callback.");
+        });
+
+        let clock_handle = {
+            let link = ctx.link().clone();
+            Interval::new(1, move || link.send_message(Msg::UpdateTime))
+        };
 
         Self {
-            link,
-            job: None,
+            time: App::get_current_time(),
             messages: Vec::new(),
-            _standalone: handle,
+            _standalone: (standalone_handle, clock_handle),
+            interval: None,
+            timeout: None,
+            console_timer: None,
         }
     }
 
-    fn update(&mut self, msg: Self::Message) -> ShouldRender {
+    fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
             Msg::StartTimeout => {
-                let handle = TimeoutService::spawn(
-                    Duration::from_secs(3),
-                    self.link.callback(|_| Msg::Done),
-                );
-                self.job = Some(Box::new(handle));
+                let handle = {
+                    let link = ctx.link().clone();
+                    Timeout::new(3000, move || link.send_message(Msg::Done))
+                };
+
+                self.timeout = Some(handle);
 
                 self.messages.clear();
-                ConsoleService::clear();
+                console::clear!();
 
-                self.messages.push("Timer started!");
-                ConsoleService::time_named("Timer");
+                self.log("Timer started!");
+                self.console_timer = Some(Timer::new("Timer"));
                 true
             }
             Msg::StartInterval => {
-                let handle = IntervalService::spawn(
-                    Duration::from_secs(1),
-                    self.link.callback(|_| Msg::Tick),
-                );
-                self.job = Some(Box::new(handle));
+                let handle = {
+                    let link = ctx.link().clone();
+                    Interval::new(1000, move || link.send_message(Msg::Tick))
+                };
+                self.interval = Some(handle);
 
                 self.messages.clear();
-                ConsoleService::clear();
+                console::clear!();
 
-                self.messages.push("Interval started!");
+                self.log("Interval started!");
                 true
             }
             Msg::Cancel => {
-                self.job = None;
-                self.messages.push("Canceled!");
-                ConsoleService::warn("Canceled!");
+                self.cancel();
+                self.log("Canceled!");
+                console::warn!("Canceled!");
                 true
             }
             Msg::Done => {
-                self.job = None;
-                self.messages.push("Done!");
+                self.cancel();
+                self.log("Done!");
 
-                ConsoleService::group();
-                ConsoleService::info("Done!");
-                ConsoleService::time_named_end("Timer");
-                ConsoleService::group_end();
+                // todo weblog
+                // ConsoleService::group();
+                console::info!("Done!");
+                if let Some(timer) = self.console_timer.take() {
+                    drop(timer);
+                }
+
+                // todo weblog
+                // ConsoleService::group_end();
                 true
             }
             Msg::Tick => {
-                self.messages.push("Tick...");
-                ConsoleService::count_named("Tick");
+                self.log("Tick...");
+                // todo weblog
+                // ConsoleService::count_named("Tick");
+                true
+            }
+            Msg::UpdateTime => {
+                self.time = App::get_current_time();
                 true
             }
         }
     }
 
-    fn change(&mut self, _props: Self::Properties) -> ShouldRender {
-        false
-    }
-
-    fn view(&self) -> Html {
-        let has_job = self.job.is_some();
+    fn view(&self, ctx: &Context<Self>) -> Html {
+        let has_job = self.timeout.is_some() || self.interval.is_some();
         html! {
-            <>
-                <button disabled=has_job onclick=self.link.callback(|_| Msg::StartTimeout)>
+            <div id="buttons">
+                <button disabled={has_job} onclick={ctx.link().callback(|_| Msg::StartTimeout)}>
                     { "Start Timeout" }
                 </button>
-                <button disabled=has_job onclick=self.link.callback(|_| Msg::StartInterval)>
+                <button disabled={has_job} onclick={ctx.link().callback(|_| Msg::StartInterval)}>
                     { "Start Interval" }
                 </button>
-                <button disabled=!has_job onclick=self.link.callback(|_| Msg::Cancel)>
+                <button disabled={!has_job} onclick={ctx.link().callback(|_| Msg::Cancel)}>
                     { "Cancel!" }
                 </button>
-                <div>
-                    { for self.messages.iter().map(|message| html! { <p>{ message }</p> }) }
+            </div>
+            <div id="wrapper">
+                <div id="time">
+                    { &self.time }
                 </div>
-            </>
+                <div id="messages">
+                    for message in self.messages.iter() {
+                        <p>{ message }</p>
+                    }
+                </div>
+            </div>
         }
+    }
+}
+
+impl App {
+    fn log(&mut self, message: impl Into<AttrValue>) {
+        self.messages.push(message.into());
     }
 }
 
 fn main() {
-    yew::start_app::<Model>();
+    yew::Renderer::<App>::new().render();
 }

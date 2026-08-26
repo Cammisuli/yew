@@ -1,0 +1,48 @@
+---
+title: 'html! マクロを使用してHTMLを処理する'
+description: 'これはHTMLですが、完全にそうではありません！'
+comment: 'ファイルを短く簡潔に保つようにしてください。これは、読者がYewのコンポーネントをより簡単に理解できるようにするためであり、正確なAPIドキュメントを提供するためではありません。'
+---
+
+`html!` マクロを使用して、HTML に似た式を記述できます。Yew はバックグラウンドでそれを DOM を表現する Rust コードに変換します。
+
+```rust
+use yew::prelude::*;
+
+let my_header: Html = html! {
+    <img src="img_girl.jpg" alt="Girl in a jacket" width="500" height="600" />
+};
+```
+
+フォーマットされた式と同様に、波括弧を使用して周囲のコンテキストの値を HTML に埋め込むことができます：
+
+```rust
+use yew::prelude::*;
+
+let header_text = "Hello world".to_string();
+let header_html: Html = html! {
+    <h1>{header_text}</h1>
+};
+
+let count: usize = 5;
+let counter_html: Html = html! {
+    <p>{"My age is: "}{count}</p>
+};
+
+let combined_html: Html = html! {
+    <div>{header_html}{counter_html}</div>
+};
+```
+
+`html!` は任意の数のルートノードを受け入れるため、複数の要素のリストを直接レンダリングできます:
+
+```rust
+use yew::html;
+
+html! {
+    <div></div>
+    <p></p>
+};
+```
+
+詳細については、[HTML の詳細](concepts/html/introduction.mdx)を参照してください。

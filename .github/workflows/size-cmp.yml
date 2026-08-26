@@ -1,0 +1,84 @@
+name: Size Comparison
+
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - .github/workflows/size-cmp.yml
+      - "ci/**"
+      - "packages/**"
+      - "examples/**"
+      - "Cargo.toml"
+
+jobs:
+  size-cmp:
+    name: Collect ${{ matrix.target }} Size
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: ["master", "pr"]
+
+    steps:
+      - name: Checkout master
+        uses: actions/checkout@v6
+        if: ${{ matrix.target == 'master' }}
+        with:
+          repository: "yewstack/yew"
+          ref: master
+
+      - name: Checkout pull request
+        uses: actions/checkout@v6
+        if: ${{ matrix.target == 'pr' }}
+
+      - name: Write Optimisation Flags
+        run: |
+          if [ -x ci/write-min-size-flags.sh ] ; then
+            ci/write-min-size-flags.sh
+          else
+            # this branch is a fallback used only for compatibility with earlier commits
+            # in the repository and other branches and can be removed in the future.
+            echo 'build-std = ["std", "panic_abort"]' >> .cargo/config.toml
+            echo '[build]' >> .cargo/config.toml
+            echo 'rustflags = ["-Cpanic=abort"]' >> .cargo/config.toml
+          fi
+
+      - name: Setup toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly
+          components: rust-src
+          targets: wasm32-unknown-unknown
+
+      - name: Restore Rust cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Setup Trunk
+        uses: jetli/trunk-action@v0.5.1
+        with:
+          version: "latest"
+
+      - name: Get latest wasm-opt version
+        id: wasm-opt
+        uses: pozetroninc/github-action-get-latest-release@master
+        with:
+          repository: WebAssembly/binaryen
+          excludes: prerelease, draft
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build examples
+        run: cargo run -p build-examples --bin build-examples
+        env:
+          LATEST_WASM_OPT_VERSION: ${{ steps.wasm-opt.outputs.release }}
+
+      - name: Collect size information
+        run: python3 ci/collect_sizes.py
+        env:
+          ISSUE_NUMBER: ${{ github.event.number }}
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: size-cmp-${{ matrix.target }}-info
+          include-hidden-files: true
+          path: ".SIZE_CMP_INFO"
+          retention-days: 1

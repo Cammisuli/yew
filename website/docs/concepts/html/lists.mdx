@@ -1,0 +1,370 @@
+---
+title: 'Lists'
+---
+
+import Tabs from '@theme/Tabs'
+import TabItem from '@theme/TabItem'
+
+## Iterators
+
+There are 4 ways to build HTML from iterators:
+
+<Tabs>
+  <TabItem value="`for` loops" label="`for` loops">
+The main approach is to use for loops, the same for loops that already exist in Rust, with one
+key difference: unlike standard for loops which can't return anything, for loops in `html!` are
+converted to a list of nodes.
+
+```rust
+use yew::prelude::*;
+
+html! {
+    for i in 0 .. 10 {
+        <span>{i}</span>
+    }
+};
+```
+
+`for` loop bodies accept Rust statements before the html children: `let`
+bindings, expression statements ending in `;`, item definitions (`fn`,
+`struct`, `use`, ...), macro invocations with `;`, and imperative `for`,
+`while`, or `loop` blocks for side effects.
+
+```rust , ignore
+use yew::prelude::*;
+
+html! {
+    for item in items {
+        let label = format!("{}: {}", item.id, item.name);
+        let class = if item.active { "active" } else { "inactive" };
+        let mut tags = String::new();
+        for tag in &item.tags {
+            tags.push_str(tag);
+            tags.push(' ');
+        }
+        <div class={class} data-tags={tags}>{label}</div>
+    }
+};
+```
+
+`break` and `continue` work as in ordinary Rust loops and affect the emitted node list.
+`continue` skips the current iteration without producing a node, `break` stops iteration early:
+
+```rust
+use yew::prelude::*;
+
+html! {
+    for i in 0..10 {
+        if i % 2 == 0 {
+            continue
+        }
+        if i > 7 {
+            break
+        }
+        <span>{i}</span>
+    }
+};
+```
+
+`break` and `continue` are also available directly as match arms, whether
+braced or unbraced:
+
+```rust
+use yew::prelude::*;
+
+html! {
+    for i in 0..10 {
+        match i {
+            0 => continue,
+            8.. => break,
+            _ => <span>{i}</span>,
+        }
+    }
+};
+```
+
+Loop labels are supported. `break 'label` and `continue 'label` target a
+labeled loop defined in the surrounding Rust code, letting you exit an
+enclosing loop from inside the macro:
+
+```rust , ignore
+use yew::prelude::*;
+
+let mut rendered = Vec::new();
+'outer: for section in sections {
+    rendered.push(html! {
+        for item in section.items {
+            if should_stop(&item) {
+                break 'outer;
+            }
+            <span>{item.name}</span>
+        }
+    });
+}
+```
+
+:::note Qualified paths
+
+A bare qualified-path expression like `<Type>::method(...)` collides with the
+`<Type>` element open tag and is rejected. Two ways out:
+
+- Add a trailing `;` and it becomes an expression statement in the preamble:
+  `<Type>::method(...);`. The return value is discarded.
+- Wrap it in `{...}` to use the return value as a node:
+  `{ <Type>::method(...) }`.
+
+:::
+
+:::note Imperative loops in the preamble
+
+A nested `for`, `while`, or `loop` whose body has only Rust statements (no
+html elements anywhere inside) is detected as a Rust statement, not as
+html-control-flow. So this works as written:
+
+```rust , ignore
+html! {
+    for item in items.iter() {
+        let mut by_han = BTreeMap::new();
+        for src in &item.sources {
+            by_han.entry(src.han_nom.clone()).or_default().push(src);
+        }
+        <div>{render(by_han)}</div>
+    }
+}
+```
+
+If you mix html into the inner loop, the macro takes that loop as
+html-control-flow instead and emits its children per iteration:
+
+```rust , ignore
+html! {
+    for item in items.iter() {
+        for tag in &item.tags {
+            <span class="tag">{tag}</span>
+        }
+    }
+}
+```
+
+:::
+
+:::caution `for` with a bare `{expr}` body inside `if`/`match`/`while`/another `for`
+
+A `for` whose only child is a bare `{expr}` block renders one node per
+iteration at the **top level** of an `html!`, but the same code nested
+inside an `if`/`match` arm/`while`/another `for` body is rejected with a
+`mismatched types: expected (), found T` error. The two positions use
+different parsing strategies, and the nested one tries to parse the loop
+as a Rust statement first. If the body is fully Rust-parseable (which a
+bare `{expr}` block is), it stops being html-control-flow.
+
+```rust , ignore
+// Works: the for is at the top level.
+html! {
+    for _ in 0..9 {
+        {my_foo}
+    }
+}
+
+// Does NOT compile: the for is nested inside an `if`.
+html! {
+    if condition {
+        for _ in 0..9 {
+            {my_foo}
+        }
+    }
+}
+```
+
+To render `my_foo` 9 times conditionally, pick one of:
+
+```rust , ignore
+// 1. Wrap the child in an html element (recommended).
+html! {
+    if condition {
+        for _ in 0..9 {
+            <span>{my_foo}</span>
+        }
+    }
+}
+
+// 2. Push the for to the top level of a nested `html!`.
+html! {
+    if condition {
+        { html! {
+            for _ in 0..9 {
+                {my_foo}
+            }
+        } }
+    }
+}
+
+// 3. Build the list with an iterator and `collect::<Html>()`.
+html! {
+    if condition {
+        { (0..9).map(|_| html!({my_foo})).collect::<Html>() }
+    }
+}
+```
+
+The same rule applies inside `match` arms, `while` bodies, and the body
+of an outer `for`.
+
+:::
+
+  </TabItem>
+  <TabItem value="`while` loops" label="`while` loops">
+`while` and `while let` loops work the same way as `for`, producing a list of nodes from their
+body. All the statement forms accepted by `for` bodies (let bindings, expression statements,
+items, macros, and imperative `for`/`while`/`loop` blocks) are also accepted here, along with
+`if` blocks and `break`/`continue`.
+
+```rust
+use yew::prelude::*;
+
+let mut items = vec!["a", "b", "c", "skip", "d"].into_iter();
+
+html! {
+    while let Some(item) = items.next() {
+        if item == "skip" {
+            continue
+        }
+        if item.is_empty() {
+            break
+        }
+        <span>{item}</span>
+    }
+};
+```
+
+A plain `while` with a condition works too:
+
+```rust
+use yew::prelude::*;
+
+let mut counter: i32 = 0;
+
+html! {
+    while counter < 5 {
+        let current = counter;
+        counter += 1;
+        <span>{current}</span>
+    }
+};
+```
+
+  </TabItem>
+  <TabItem value="`for` block" label="`for` block">
+An alternative is to use the `for` keyword, which is not native Rust syntax and instead is used by
+the HTML macro to output the needed code to display the iterator.
+This approach is better than the first one when the iterator is already computed and the only thing left to do
+is to pass it to the macro.
+
+```rust
+use yew::prelude::*;
+
+let items = (1..=10).collect::<Vec<_>>();
+
+html! {
+    <ul class="item-list">
+        { for items.iter() }
+    </ul>
+};
+```
+
+  </TabItem>
+  <TabItem value="`collect` method" label="`collect` method">
+
+The last is to call `collect::<Html>()` on the final transform in your iterator, which returns a
+list that Yew can display.
+
+```rust
+use yew::prelude::*;
+
+let items = (1..=10).collect::<Vec<_>>();
+
+html! {
+    <ul class="item-list">
+        { items.iter().collect::<Html>() }
+    </ul>
+};
+```
+
+  </TabItem>
+</Tabs>
+
+## Keyed lists
+
+A keyed list is an optimized list that has keys on **all** children.
+`key` is a special prop provided by Yew that gives an HTML element or component a unique identifier
+that is used for optimization purposes inside Yew.
+
+:::caution
+Key has to be unique only in each list, in contrast to the global uniqueness of HTML `id`s. It must not depend on the order of the list.
+:::
+
+It is always recommended to add keys to lists.
+
+Keys can be added by passing a unique `String`, `str` or integer to the special `key` prop:
+
+```rust , ignore
+use yew::prelude::*;
+
+let names = vec!["Sam","Bob","Ray"]
+
+html! {
+    <div id="introductions">
+        {
+            names.into_iter().map(|name| {
+                html!{<div key={name}>{ format!("Hello, I'am {}!",name) }</div>}
+            }).collect::<Html>()
+        }
+    </div>
+};
+
+```
+
+### Performance increases
+
+We have [Keyed list](https://github.com/yewstack/yew/tree/master/examples/keyed_list) example that lets you test the performance improvements, but here is a rough rundown:
+
+1. Go to [Keyed list hosted demo](https://examples.yew.rs/keyed_list)
+2. Add 500 elements.
+3. Disable keys.
+4. Reverse the list.
+5. Look at "The last rendering took Xms" (At the time of writing this it was ~60ms)
+6. Enable keys.
+7. Reverse the list.
+8. Look at "The last rendering took Xms" (At the time of writing this it was ~30ms)
+
+So just at the time of writing this, for 500 components it is a 2x increase of speed.
+
+### Detailed explanation
+
+Usually, you just need a key on every list item when you iterate and the order of data can change.
+It's used to speed up the reconciliation process when re-rendering the list.
+
+Without keys, assume you iterate through `["bob", "sam", "rob"]`, ending up with the HTML:
+
+```html
+<div id="bob">My name is Bob</div>
+<div id="sam">My name is Sam</div>
+<div id="rob">My name is rob</div>
+```
+
+Then on the next render, if your list changed to `["bob", "rob"]`, yew could delete
+the element with id="rob" and update id="sam" to be id="rob"
+
+If you had added a key to each element, the initial HTML would be the same, but after
+the render with the modified list, `["bob", "rob"]`, yew would just delete the second
+HTML element and leave the rest untouched since it can use the keys to associate them.
+
+If you ever encounter a bug/"feature" where you switch from one component to another but both have a div as the highest rendered element.
+Yew reuses the rendered HTML div in those cases as an optimization.
+If you need that div to be recreated instead of reused, then you can add different keys and they will not be reused.
+
+## Further reading
+
+- [TodoMVC](https://github.com/yewstack/yew/tree/master/examples/todomvc)
+- [Keyed list](https://github.com/yewstack/yew/tree/master/examples/keyed_list)
+- [Router](https://github.com/yewstack/yew/tree/master/examples/router)

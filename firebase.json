@@ -2,48 +2,29 @@
   "hosting": [
     {
       "target": "website",
-      "public": "website/build/yew",
+      "public": "website/build/",
+      "cleanUrls": true,
+      "redirects": [],
+      "rewrites": [
+        {
+          "source": "/api/**",
+          "dynamicLinks": true
+        }
+      ]
+    },
+    {
+      "target": "api",
+      "public": "api-docs/dist/",
       "redirects": [
         {
           "source": "/",
-          "destination": "/docs/en/intro/",
-          "type": 301
+          "destination": "https://docs.rs/yew",
+          "type": 302
         },
         {
-          "source": "/docs",
-          "destination": "/docs/en/intro/",
-          "type": 301
-        },
-        {
-          "regex": "/(docs/)?(?P<lang>en|ja|zh-TW|zh-CN)",
-          "destination": "/docs/:lang/intro/",
-          "type": 301
-        },
-        {
-          "source": "/docs/v/zh_cn",
-          "destination": "/docs/zh-CN/intro/",
-          "type": 301
-        },
-        {
-          "source": "/docs/v/zh_tw",
-          "destination": "/docs/zh-TW/intro/",
-          "type": 301
-        },
-        {
-          "regex": "/docs/v/zh_cn/(.*)",
-          "destination": "/docs/zh-CN/:1",
-          "type": 301
-        },
-        {
-          "regex": "/docs/v/zh_tw/(.*)",
-          "destination": "/docs/zh-TW/:1",
-          "type": 301
-        }
-      ],
-      "rewrites": [
-        {
-          "source": "**",
-          "destination": "/index.html"
+          "regex": "/(yew_((agent|router)?_?(macro)?))",
+          "destination": "https://docs.rs/:1",
+          "type": 302
         }
       ]
     },
@@ -59,7 +40,29 @@
           "source": "/todomvc/**",
           "destination": "/todomvc/index.html"
         }
+      ],
+      "redirects": [
+        {
+          "source": "/",
+          "destination": "https://yew.rs/getting-started/examples",
+          "type": 302
+        }
       ]
     }
-  ]
+  ],
+  "headers": [ {
+    "source": "tutorial/*.json",
+    "headers": [ {
+      "key": "Access-Control-Allow-Origin",
+      "value": "*"
+    } ]
+  } ],
+  "emulators": {
+    "hosting": {
+      "port": 5000
+    },
+    "ui": {
+      "enabled": true
+    }
+  }
 }

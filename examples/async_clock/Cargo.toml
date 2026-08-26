@@ -1,0 +1,13 @@
+[package]
+name = "async_clock"
+version = "0.0.1"
+authors = ["Marcel Ibes <mibes@mibesco.com>"]
+edition = "2024"
+rust-version.workspace = true
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+yew = { path = "../../packages/yew", features = ["csr"] }
+chrono.workspace = true
+futures.workspace = true
+gloo-net = "0.7"

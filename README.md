@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="https://static.yew.rs/logo.svg" width="150" />
+  <a href="https://yew.rs/" target="_blank"><img src="https://yew.rs/img/logo.png" width="150" /></a>
 
   <h1>Yew</h1>
 
@@ -11,46 +11,44 @@
     <a href="https://crates.io/crates/yew"><img alt="Crate Info" src="https://img.shields.io/crates/v/yew.svg"/></a>
     <a href="https://docs.rs/yew/"><img alt="API Docs" src="https://img.shields.io/badge/docs.rs-yew-green"/></a>
     <a href="https://discord.gg/VQck8X4"><img alt="Discord Chat" src="https://img.shields.io/discord/701068342760570933"/></a>
-    <a href="https://gitlocalize.com/repo/4999/whole_project?utm_source=badge"> <img src="https://gitlocalize.com/repo/4999/whole_project/badge.svg" /> </a>
-    <a href="https://blog.rust-lang.org/2020/07/16/Rust-1.45.0.html"><img alt="Rustc Version 1.45+" src="https://img.shields.io/badge/rustc-1.45%2B-lightgrey.svg"/></a>
   </p>
 
   <h4>
-    <a href="https://yew.rs/docs">Documentation (stable)</a>
+    <a href="https://yew.rs/">Documentation (stable)</a>
     <span> | </span>
-    <a href="https://yew.rs/docs/en/next/intro/">Documentation (latest)</a>
+    <a href="https://yew.rs/docs/next/">Documentation (latest)</a>
     <span> | </span>
-    <a href="https://github.com/yewstack/yew/tree/v0.17/examples">Examples</a>
+    <a href="https://github.com/yewstack/yew/tree/master/examples">Examples</a>
     <span> | </span>
     <a href="https://github.com/yewstack/yew/blob/master/CHANGELOG.md">Changelog</a>
     <span> | </span>
     <a href="https://yew.rs/docs/more/roadmap">Roadmap</a>
     <span> | </span>
-    <a href="https://yew.rs/docs/zh-CN">简体中文文档</a>
+    <a href="https://yew.rs/zh-Hans">简体中文文档</a>
     <span> | </span>
-    <a href="https://yew.rs/docs/zh-TW">繁體中文文檔</a>
+    <a href="https://yew.rs/zh-Hant">繁體中文文檔</a>
     <span> | </span>
-    <a href="https://yew.rs/docs/ja">ドキュメント</a>
+    <a href="https://yew.rs/ja">ドキュメント</a>
   </h4>
 </div>
 
 ## About
 
-**Yew** is a modern Rust framework for creating multi-threaded front-end web apps with WebAssembly.
+**Yew** is a modern Rust framework for creating multi-threaded, front-end web apps with WebAssembly.
 
 * Features a macro for declaring interactive HTML with Rust expressions. Developers who have experience using JSX in React should feel quite at home when using Yew.
 * Achieves high performance by minimizing DOM API calls for each page render and by making it easy to offload processing to background web workers.
 * Supports JavaScript interoperability, allowing developers to leverage NPM packages and integrate with existing JavaScript applications.
 
-*Note: Yew is not (yet) production ready but is great for side projects and internal tools.*
+Yew is named after a type of evergreen tree, and is pronounced /juː/. [Entry with audio on Cambridge Dictionary](https://dictionary.cambridge.org/dictionary/english/yew).
 
 ## Contributing
 
-Yew is a community effort and we welcome all kinds of contributions, big or small, from developers of all backgrounds. We want the Yew community to be a fun and friendly place, so please review our [Code of Conduct](CODE_OF_CONDUCT.md) to learn what behavior will not be tolerated.
+Yew is a community-driven effort and we welcome all kinds of contributions, big or small, from developers of all backgrounds. We want the Yew community to be a fun and friendly place, so please review our [Code of Conduct](https://github.com/yewstack/yew/blob/master/CODE_OF_CONDUCT.md) to learn what behavior will not be tolerated.
 
 #### 🤠 New to Yew?
 
-Start learning about the framework by helping us improve our [documentation](https://github.com/yewstack/yew/tree/master/docs). Pull requests which improve test coverage are also very welcome.
+Start learning about the framework by helping us improve our [documentation](https://github.com/yewstack/yew/tree/master/website/docs). Pull requests which improve test coverage are also very welcome.
 
 #### 😎 Looking for inspiration?
 
@@ -58,23 +56,15 @@ Check out the community curated list of awesome things related to Yew / WebAssem
 
 #### 🤔 Confused about something?
 
-Feel free to drop into our [Discord chatroom](https://discord.gg/VQck8X4) or open a [new "Question" issue](https://github.com/yewstack/yew/issues/new/choose) to get help from contributors. Often questions lead to improvements to the ergonomics of the framework, better documentation, and even new features!
+Feel free to drop into our [Discord chatroom](https://discord.gg/VQck8X4) or open a [new "Question" issue](https://github.com/yewstack/yew/issues/new/choose) to get help from contributors. Often questions lead to improvements to the ergonomics of the framework, better documentation and even new features!
 
 #### 🙂 Ready to dive into the code?
 
-After reviewing the [Contribution Guide](CONTRIBUTING.md), check out the ["Good First Issues"](https://github.com/yewstack/yew/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22) (they are eager for attention!). Once you find one that interests you, feel free to assign yourself to an issue and don't hesitate to reach out for guidance, the issues vary in complexity.
-
-#### 🤑 Let's help each other!
-
-Come help us on the [issues that matter that the most](https://github.com/yewstack/yew/labels/%3Adollar%3A%20Funded%20on%20Issuehunt) and receive a small cash reward for your troubles. We use [Issuehunt](https://issuehunt.io/r/yewstack/yew/) to fund issues from our Open Collective funds. If you really care about an issue, you can choose to add funds yourself! 
+After reviewing the [Contribution Guide](https://github.com/yewstack/yew/blob/master/CONTRIBUTING.md), check out the ["Good First Issues"](https://github.com/yewstack/yew/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22) (they are eager for attention!). Once you find one that interests you, feel free to assign yourself to an issue and don't hesitate to reach out for guidance, the issues vary in complexity.
 
 #### 😱 Found a bug?
 
 Please [report all bugs!](https://github.com/yewstack/yew/issues/new/choose) We are happy to help support developers fix the bugs they find if they are interested and have the time.
-
-#### 🤓 Want to help translate?
-
-Translations can be submitted on the [Yew GitLocalize Repo](https://gitlocalize.com/repo/4999). If you are interested in being the official moderator for a language, please reach out on Discord.
 
 ## Contributors
 

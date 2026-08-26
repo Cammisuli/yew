@@ -1,5 +1,7 @@
-use crate::{content, generator::Generated};
 use yew::prelude::*;
+
+use crate::content;
+use crate::generator::Generated;
 
 #[derive(Clone, Debug, Eq, PartialEq, Properties)]
 pub struct Props {
@@ -13,26 +15,18 @@ impl Component for Author {
     type Message = ();
     type Properties = Props;
 
-    fn create(props: Self::Properties, _link: ComponentLink<Self>) -> Self {
+    fn create(ctx: &Context<Self>) -> Self {
         Self {
-            author: content::Author::generate_from_seed(props.seed),
+            author: content::Author::generate_from_seed(ctx.props().seed),
         }
     }
 
-    fn update(&mut self, _msg: Self::Message) -> ShouldRender {
-        unimplemented!()
+    fn changed(&mut self, ctx: &Context<Self>, _old_props: &Self::Properties) -> bool {
+        self.author = content::Author::generate_from_seed(ctx.props().seed);
+        true
     }
 
-    fn change(&mut self, props: Self::Properties) -> ShouldRender {
-        if self.author.seed == props.seed {
-            false
-        } else {
-            self.author = content::Author::generate_from_seed(props.seed);
-            true
-        }
-    }
-
-    fn view(&self) -> Html {
+    fn view(&self, _ctx: &Context<Self>) -> Html {
         let Self { author } = self;
 
         html! {
@@ -48,13 +42,15 @@ impl Component for Author {
                             <article class="tile is-child notification">
                                 <p class="title">{ "Interests" }</p>
                                 <div class="tags">
-                                    { for author.keywords.iter().map(|tag| html! { <span class="tag is-info">{ tag }</span> }) }
+                                    for tag in &author.keywords {
+                                        <span class="tag is-info">{ tag }</span>
+                                    }
                                 </div>
                             </article>
                         </div>
                         <div class="tile is-parent">
                             <figure class="tile is-child image is-square">
-                                <img src=author.image_url />
+                                <img alt="The author's profile picture." src={author.image_url.clone()} />
                             </figure>
                         </div>
                         <div class="tile is-parent">

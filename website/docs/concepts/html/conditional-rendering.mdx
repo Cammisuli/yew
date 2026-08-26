@@ -1,0 +1,201 @@
+---
+title: 'Conditional rendering'
+description: 'Rendering nodes conditionally with if, if let, and match in html!'
+---
+
+import Tabs from '@theme/Tabs'
+import TabItem from '@theme/TabItem'
+
+## If blocks
+
+To conditionally render some markup, we wrap it in an `if` block:
+
+<Tabs>
+  <TabItem value="if" label="if">
+
+```rust
+use yew::prelude::*;
+
+html! {
+    if true {
+        <p>{ "True case" }</p>
+    }
+};
+```
+
+  </TabItem>
+  <TabItem value="if - else" label="if - else">
+
+```rust
+use yew::prelude::*;
+let some_condition = true;
+
+html! {
+    if some_condition {
+        <p>{ "True case" }</p>
+    } else {
+        <p>{ "False case" }</p>
+    }
+};
+```
+
+  </TabItem>
+  <TabItem value="if let" label="if let">
+
+```rust
+use yew::prelude::*;
+let some_text = Some("text");
+
+html! {
+    if let Some(text) = some_text {
+        <p>{ text }</p>
+    }
+};
+```
+
+  </TabItem>
+  <TabItem value="if let else" label="if let else">
+
+```rust
+use yew::prelude::*;
+let some_text = Some("text");
+
+html! {
+    if let Some(text) = some_text {
+        <p>{ text }</p>
+    } else {
+        <p>{ "False case" }</p>
+    }
+};
+```
+
+  </TabItem>
+  <TabItem value="if-let-bindings" label="Let bindings">
+
+Braced bodies support `let` bindings before html children, as well as multiple children directly:
+
+```rust , ignore
+use yew::prelude::*;
+
+html! {
+    if condition {
+        let label = format!("count: {count}");
+        <h2>{"Result"}</h2>
+        <span>{label}</span>
+    } else {
+        "nothing"
+    }
+};
+```
+
+`let` bindings must appear before any html children and cannot be interleaved with them.
+
+  </TabItem>
+</Tabs>
+
+## Match blocks
+
+`match` expressions work directly in `html!`, following the same pattern as `if`/`else`:
+
+<Tabs>
+  <TabItem value="match" label="match">
+
+```rust
+use yew::prelude::*;
+
+let value: Option<String> = Some("hello".into());
+
+html! {
+    match value {
+        Some(text) => <p>{text}</p>,
+        None => <p>{"Nothing here"}</p>,
+    }
+};
+```
+
+  </TabItem>
+  <TabItem value="match-guards" label="If guards">
+
+```rust
+use yew::prelude::*;
+
+let value: i32 = 42;
+
+html! {
+    match value {
+        x if x > 10 => <p>{"Big"}</p>,
+        x if x > 0 => <p>{"Small"}</p>,
+        _ => <p>{"Non-positive"}</p>,
+    }
+};
+```
+
+  </TabItem>
+  <TabItem value="match-let" label="Let bindings">
+
+Braced arm bodies support `let` bindings and multiple children:
+
+```rust , ignore
+use yew::prelude::*;
+
+html! {
+    match data {
+        Some(item) => {
+            let label = format!("Item: {}", item.name);
+            let class = if item.important { "highlight" } else { "normal" };
+            <p class={class}>{label}</p>
+        }
+        None => <p>{"No data"}</p>,
+    }
+};
+```
+
+  </TabItem>
+</Tabs>
+
+Arms with a single element can omit braces. Arms with multiple children or `let` bindings require braces.
+
+`match` supports all standard Rust patterns including OR-patterns (`A | B`), destructuring, and `if` guards. Exhaustiveness is checked by the Rust compiler.
+
+## Loops inside `if`/`match` bodies
+
+`for`, `while`, and `loop` inside an `if`/`else if`/`else`/`match`-arm body
+follow the same rules they do at the top level of `html!`, with one caveat:
+if the loop body is fully Rust-parseable (no html elements anywhere inside),
+the macro takes the loop as a Rust statement instead of html-control-flow.
+
+The most common way to hit this is a loop whose only child is a bare
+`{expr}` block:
+
+```rust , ignore
+// Compiles. The for is at the top level, parsed as html-`for`.
+html! {
+    for _ in 0..9 {
+        {my_foo}
+    }
+}
+
+// Does NOT compile. The for is inside an `if`, parsed as a Rust statement;
+// rustc then complains that the body returns a value where `()` is expected.
+html! {
+    if condition {
+        for _ in 0..9 {
+            {my_foo}
+        }
+    }
+}
+```
+
+Wrap the child in an html element to keep it as html-`for`:
+
+```rust , ignore
+html! {
+    if condition {
+        for _ in 0..9 {
+            <span>{my_foo}</span>
+        }
+    }
+}
+```
+
+See [Lists](./lists.mdx) for the full set of workarounds.

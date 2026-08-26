@@ -1,6 +1,8 @@
-use crate::components::{author_card::AuthorCard, progress_delay::ProgressDelay};
-use rand::{distributions, Rng};
+use rand::{RngExt, distr};
 use yew::prelude::*;
+
+use crate::components::author_card::AuthorCard;
+use crate::components::progress_delay::ProgressDelay;
 
 /// Amount of milliseconds to wait before showing the next set of authors.
 const CAROUSEL_DELAY_MS: u64 = 15000;
@@ -10,21 +12,19 @@ pub enum Msg {
 }
 
 pub struct AuthorList {
-    link: ComponentLink<Self>,
     seeds: Vec<u64>,
 }
 impl Component for AuthorList {
     type Message = Msg;
     type Properties = ();
 
-    fn create(_props: Self::Properties, link: ComponentLink<Self>) -> Self {
+    fn create(_ctx: &Context<Self>) -> Self {
         Self {
-            link,
             seeds: random_author_seeds(),
         }
     }
 
-    fn update(&mut self, msg: Self::Message) -> ShouldRender {
+    fn update(&mut self, _ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
             Msg::NextAuthors => {
                 self.seeds = random_author_seeds();
@@ -33,21 +33,7 @@ impl Component for AuthorList {
         }
     }
 
-    fn change(&mut self, _props: Self::Properties) -> ShouldRender {
-        false
-    }
-
-    fn view(&self) -> Html {
-        let authors = self.seeds.iter().map(|seed| {
-            html! {
-                <div class="tile is-parent">
-                    <div class="tile is-child">
-                        <AuthorCard seed=seed />
-                    </div>
-                </div>
-            }
-        });
-
+    fn view(&self, ctx: &Context<Self>) -> Html {
         html! {
             <div class="container">
                 <section class="hero">
@@ -69,9 +55,15 @@ impl Component for AuthorList {
                 </p>
                 <div class="section">
                     <div class="tile is-ancestor">
-                        { for authors }
+                        for seed in &self.seeds {
+                            <div class="tile is-parent">
+                                <div class="tile is-child">
+                                    <AuthorCard {seed} />
+                                </div>
+                            </div>
+                        }
                     </div>
-                    <ProgressDelay duration_ms=CAROUSEL_DELAY_MS on_complete=self.link.callback(|_| Msg::NextAuthors) />
+                    <ProgressDelay duration_ms={CAROUSEL_DELAY_MS} on_complete={ctx.link().callback(|_| Msg::NextAuthors)} />
                 </div>
             </div>
         }
@@ -79,8 +71,8 @@ impl Component for AuthorList {
 }
 
 fn random_author_seeds() -> Vec<u64> {
-    rand::thread_rng()
-        .sample_iter(distributions::Standard)
+    rand::rng()
+        .sample_iter(distr::StandardUniform)
         .take(2)
         .collect()
 }

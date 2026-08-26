@@ -1,79 +1,76 @@
+use std::sync::OnceLock;
+
+use wasm_bindgen::JsCast;
 use wasm_bindgen::prelude::*;
+use wasm_bindgen_futures::JsFuture;
 use yew::prelude::*;
+use yew::suspense::{SuspensionResult, use_future};
 
 mod bindings;
 
-pub enum Msg {
-    Payload(String),
-    AsyncPayload,
-}
+static WASM_BINDGEN_SNIPPETS_PATH: OnceLock<String> = OnceLock::new();
 
-pub struct Model {
-    payload: String,
-    // Pointless field just to have something that's been manipulated
-    debugged_payload: String,
-    link: ComponentLink<Model>,
-}
-
-impl Component for Model {
-    type Message = Msg;
-    type Properties = ();
-
-    fn create(_props: Self::Properties, link: ComponentLink<Self>) -> Self {
-        Self {
-            payload: String::default(),
-            debugged_payload: format!("{:?}", ""),
-            link,
-        }
+#[function_component]
+fn Important() -> Html {
+    let msg = use_memo((), |_| bindings::hello());
+    html! {
+        <h2>{"Important"}</h2>
+        <p>{msg}</p>
     }
+}
 
-    fn update(&mut self, msg: Self::Message) -> ShouldRender {
-        match msg {
-            Msg::Payload(payload) => {
-                if payload != self.payload {
-                    self.debugged_payload = format!("{:?}", payload);
-                    self.payload = payload;
-                    true
-                } else {
-                    false
+#[hook]
+fn use_do_bye() -> SuspensionResult<String> {
+    let path = WASM_BINDGEN_SNIPPETS_PATH
+        .get()
+        .map(|path| format!("{path}/js/unimp.js"))
+        .unwrap();
+    let s = use_future(|| async move {
+        let promise = bindings::import(&path);
+        let module = JsFuture::from(promise).await.unwrap_throw();
+        let module = module.unchecked_into::<bindings::UnimpModule>();
+        module.bye()
+    })?;
+    Ok((*s).clone())
+}
+
+#[function_component]
+fn UnImportant() -> HtmlResult {
+    let msg = use_do_bye()?;
+    Ok(html! {
+        <h2>{"Unimportant"}</h2>
+        <p>{msg}</p>
+    })
+}
+
+#[function_component]
+fn App() -> Html {
+    let showing_unimportant = use_state(|| false);
+
+    let show_unimportant = {
+        let showing_unimportant = showing_unimportant.clone();
+        move |_| showing_unimportant.set(true)
+    };
+    let fallback = html! {"fallback"};
+    html! {
+        <main>
+            <Important />
+            <button onclick={show_unimportant}>{"load unimportant data"}</button>
+            <Suspense {fallback}>
+                if *showing_unimportant {
+                    <UnImportant />
                 }
-            }
-            Msg::AsyncPayload => {
-                let callback = self.link.callback(Msg::Payload);
-                bindings::get_payload_later(Closure::once_into_js(move |payload: String| {
-                    callback.emit(payload)
-                }));
-                false
-            }
-        }
-    }
-
-    fn change(&mut self, _props: Self::Properties) -> ShouldRender {
-        false
-    }
-
-    fn view(&self) -> Html {
-        html! {
-            <>
-                <textarea
-                    class="code-block"
-                    oninput=self.link.callback(|input: InputData| Msg::Payload(input.value))
-                    value=&self.payload
-                />
-                <button onclick=self.link.callback(|_| Msg::Payload(bindings::get_payload()))>
-                    { "Get the payload!" }
-                </button>
-                <button onclick=self.link.callback(|_| Msg::AsyncPayload) >
-                    { "Get the payload later!" }
-                </button>
-                <p class="code-block">
-                    { &self.debugged_payload }
-                </p>
-            </>
-        }
+            </Suspense>
+        </main>
     }
 }
 
 fn main() {
-    yew::start_app::<Model>();
+    let wasm_bindgen_snippets_path = js_sys::global()
+        .unchecked_into::<bindings::Window>()
+        .wasm_bindgen_snippets_path();
+    WASM_BINDGEN_SNIPPETS_PATH
+        .set(wasm_bindgen_snippets_path)
+        .expect("unreachable");
+    yew::Renderer::<App>::new().render();
 }

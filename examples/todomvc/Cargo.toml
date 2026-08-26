@@ -2,11 +2,20 @@
 name = "todomvc"
 version = "0.1.0"
 authors = ["Denis Kolodin <deniskolodin@gmail.com>"]
-edition = "2018"
+edition = "2024"
+rust-version.workspace = true
+license = "MIT OR Apache-2.0"
 
 [dependencies]
-strum = "0.19"
-strum_macros = "0.19"
-serde = "1"
+strum.workspace = true
+strum_macros.workspace = true
+serde.workspace = true
 serde_derive = "1"
-yew = { path = "../../yew" }
+yew = { path = "../../packages/yew", features = ["csr"] }
+gloo.workspace = true
+
+[dependencies.web-sys]
+workspace = true
+features = [
+	"HtmlInputElement",
+]

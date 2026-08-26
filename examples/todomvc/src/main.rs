@@ -1,20 +1,17 @@
+use gloo::storage::{LocalStorage, Storage};
 use state::{Entry, Filter, State};
 use strum::IntoEnumIterator;
-use yew::format::Json;
-use yew::services::storage::{Area, StorageService};
-use yew::web_sys::HtmlInputElement as InputElement;
-use yew::{events::KeyboardEvent, Classes};
-use yew::{html, Component, ComponentLink, Html, InputData, NodeRef, ShouldRender};
+use web_sys::HtmlInputElement as InputElement;
+use yew::events::{FocusEvent, KeyboardEvent};
+use yew::{Classes, Component, Context, Html, NodeRef, TargetCast, classes, html};
 
 mod state;
 
 const KEY: &str = "yew.todomvc.self";
 
 pub enum Msg {
-    Add,
-    Edit(usize),
-    Update(String),
-    UpdateEdit(String),
+    Add(String),
+    Edit((usize, String)),
     Remove(usize),
     SetFilter(Filter),
     ToggleAll,
@@ -24,45 +21,26 @@ pub enum Msg {
     Focus,
 }
 
-pub struct Model {
-    link: ComponentLink<Self>,
-    storage: StorageService,
+pub struct App {
     state: State,
     focus_ref: NodeRef,
 }
 
-impl Component for Model {
+impl Component for App {
     type Message = Msg;
     type Properties = ();
 
-    fn create(_props: Self::Properties, link: ComponentLink<Self>) -> Self {
-        let storage = StorageService::new(Area::Local).expect("storage was disabled by the user");
-        let entries = {
-            if let Json(Ok(restored_model)) = storage.restore(KEY) {
-                restored_model
-            } else {
-                Vec::new()
-            }
-        };
-        let state = State {
-            entries,
-            filter: Filter::All,
-            value: "".into(),
-            edit_value: "".into(),
-        };
+    fn create(_ctx: &Context<Self>) -> Self {
+        let entries = LocalStorage::get(KEY).unwrap_or_else(|_| Vec::new());
+        let state = State::new(entries);
         let focus_ref = NodeRef::default();
-        Self {
-            link,
-            storage,
-            state,
-            focus_ref,
-        }
+        Self { state, focus_ref }
     }
 
-    fn update(&mut self, msg: Self::Message) -> ShouldRender {
+    fn update(&mut self, _ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
-            Msg::Add => {
-                let description = self.state.value.trim();
+            Msg::Add(description) => {
+                let description = description.trim();
                 if !description.is_empty() {
                     let entry = Entry {
                         description: description.to_string(),
@@ -71,20 +49,10 @@ impl Component for Model {
                     };
                     self.state.entries.push(entry);
                 }
-                self.state.value = "".to_string();
             }
-            Msg::Edit(idx) => {
-                let edit_value = self.state.edit_value.trim().to_string();
-                self.state.complete_edit(idx, edit_value);
+            Msg::Edit((idx, edit_value)) => {
+                self.state.complete_edit(idx, edit_value.trim().to_string());
                 self.state.edit_value = "".to_string();
-            }
-            Msg::Update(val) => {
-                println!("Input: {}", val);
-                self.state.value = val;
-            }
-            Msg::UpdateEdit(val) => {
-                println!("Input: {}", val);
-                self.state.edit_value = val;
             }
             Msg::Remove(idx) => {
                 self.state.remove(idx);
@@ -93,16 +61,17 @@ impl Component for Model {
                 self.state.filter = filter;
             }
             Msg::ToggleEdit(idx) => {
-                self.state.edit_value = self.state.entries[idx].description.clone();
+                let entry = self.state.entries.get(idx).unwrap();
+                self.state.edit_value.clone_from(&entry.description);
                 self.state.clear_all_edit();
                 self.state.toggle_edit(idx);
             }
             Msg::ToggleAll => {
                 let status = !self.state.is_all_completed();
-                self.state.toggle_all(status);
+                self.state.set_completed(status);
             }
             Msg::Toggle(idx) => {
-                self.state.toggle(idx);
+                self.state.toggle_completed(idx);
             }
             Msg::ClearCompleted => {
                 self.state.clear_completed();
@@ -113,49 +82,133 @@ impl Component for Model {
                 }
             }
         }
-        self.storage.store(KEY, Json(&self.state.entries));
+        LocalStorage::set(KEY, &self.state.entries).expect("failed to set");
         true
     }
 
-    fn change(&mut self, _: Self::Properties) -> ShouldRender {
-        false
-    }
-
-    fn view(&self) -> Html {
+    fn view(&self, ctx: &Context<Self>) -> Html {
+        let link = ctx.link();
         let hidden_class = if self.state.entries.is_empty() {
             "hidden"
         } else {
             ""
         };
+        let new_todo_onkeypress = link.batch_callback(|e: KeyboardEvent| {
+            if e.key() == "Enter" {
+                let input: InputElement = e.target_unchecked_into();
+                let value = input.value();
+                input.set_value("");
+                Some(Msg::Add(value))
+            } else {
+                None
+            }
+        });
         html! {
             <div class="todomvc-wrapper">
                 <section class="todoapp">
                     <header class="header">
                         <h1>{ "todos" }</h1>
-                        { self.view_input() }
+                        // You can use standard Rust comments. One line:
+                        // <li></li>
+                        <input
+                            class="new-todo"
+                            placeholder="What needs to be done?"
+                            onkeypress={new_todo_onkeypress}
+                        />
+                        /* Or multiline:
+                        <ul>
+                            <li></li>
+                        </ul>
+                        */
                     </header>
-                    <section class=("main", hidden_class)>
+                    <section class={classes!("main", hidden_class)}>
                         <input
                             type="checkbox"
                             class="toggle-all"
                             id="toggle-all"
-                            checked=self.state.is_all_completed()
-                            onclick=self.link.callback(|_| Msg::ToggleAll)
+                            checked={self.state.is_all_completed()}
+                            onclick={link.callback(|_| Msg::ToggleAll)}
                         />
                         <label for="toggle-all" />
                         <ul class="todo-list">
-                            { for self.state.entries.iter().filter(|e| self.state.filter.fits(e)).enumerate().map(|e| self.view_entry(e)) }
+                            for (idx, entry) in self
+                                .state
+                                .entries
+                                .iter()
+                                .enumerate()
+                                .filter(|(_, e)| self.state.filter.fits(e))
+                            {
+                                let class = {
+                                    let mut c = Classes::from("todo");
+                                    if entry.editing {
+                                        c.push(" editing");
+                                    }
+                                    if entry.completed {
+                                        c.push(" completed");
+                                    }
+                                    c
+                                };
+                                let edit = move |input: InputElement| {
+                                    let value = input.value();
+                                    input.set_value("");
+                                    Msg::Edit((idx, value))
+                                };
+                                let onblur = link
+                                    .callback(move |e: FocusEvent| edit(e.target_unchecked_into()));
+                                let onkeypress = link.batch_callback(move |e: KeyboardEvent| {
+                                    (e.key() == "Enter").then(|| edit(e.target_unchecked_into()))
+                                });
+                                <li {class}>
+                                    <div class="view">
+                                        <input
+                                            type="checkbox"
+                                            class="toggle"
+                                            checked={entry.completed}
+                                            onclick={link.callback(move |_| Msg::Toggle(idx))}
+                                        />
+                                        <label ondblclick={link.callback(move |_| Msg::ToggleEdit(idx))}>{ &entry.description }</label>
+                                        <button class="destroy" onclick={link.callback(move |_| Msg::Remove(idx))} />
+                                    </div>
+                                    if entry.editing {
+                                        <input
+                                            class="edit"
+                                            type="text"
+                                            ref={self.focus_ref.clone()}
+                                            value={self.state.edit_value.clone()}
+                                            onmouseover={link.callback(|_| Msg::Focus)}
+                                            {onblur}
+                                            {onkeypress}
+                                        />
+                                    } else {
+                                        <input type="hidden" />
+                                    }
+                                </li>
+                            }
                         </ul>
                     </section>
-                    <footer class=("footer", hidden_class)>
+                    <footer class={classes!("footer", hidden_class)}>
                         <span class="todo-count">
                             <strong>{ self.state.total() }</strong>
                             { " item(s) left" }
                         </span>
                         <ul class="filters">
-                            { for Filter::iter().map(|flt| self.view_filter(flt)) }
+                            for filter in Filter::iter() {
+                                let cls = if self.state.filter == filter {
+                                    "selected"
+                                } else {
+                                    "not-selected"
+                                };
+                                <li>
+                                    <a class={cls}
+                                       href={filter.as_href()}
+                                       onclick={link.callback(move |_| Msg::SetFilter(filter))}
+                                    >
+                                        { filter }
+                                    </a>
+                                </li>
+                            }
                         </ul>
-                        <button class="clear-completed" onclick=self.link.callback(|_| Msg::ClearCompleted)>
+                        <button class="clear-completed" onclick={link.callback(|_| Msg::ClearCompleted)}>
                             { format!("Clear completed ({})", self.state.total_completed()) }
                         </button>
                     </footer>
@@ -170,93 +223,6 @@ impl Component for Model {
     }
 }
 
-impl Model {
-    fn view_filter(&self, filter: Filter) -> Html {
-        let cls = if self.state.filter == filter {
-            "selected"
-        } else {
-            "not-selected"
-        };
-        html! {
-            <li>
-                <a class=cls
-                   href=filter.as_href()
-                   onclick=self.link.callback(move |_| Msg::SetFilter(filter))
-                >
-                    { filter }
-                </a>
-            </li>
-        }
-    }
-
-    fn view_input(&self) -> Html {
-        html! {
-            // You can use standard Rust comments. One line:
-            // <li></li>
-            <input
-                class="new-todo"
-                placeholder="What needs to be done?"
-                value=&self.state.value
-                oninput=self.link.callback(|e: InputData| Msg::Update(e.value))
-                onkeypress=self.link.batch_callback(|e: KeyboardEvent| {
-                    if e.key() == "Enter" { Some(Msg::Add) } else { None }
-                })
-            />
-            /* Or multiline:
-            <ul>
-                <li></li>
-            </ul>
-            */
-        }
-    }
-
-    fn view_entry(&self, (idx, entry): (usize, &Entry)) -> Html {
-        let mut class = Classes::from("todo");
-        if entry.editing {
-            class.push(" editing");
-        }
-        if entry.completed {
-            class.push(" completed");
-        }
-        html! {
-            <li class=class>
-                <div class="view">
-                    <input
-                        type="checkbox"
-                        class="toggle"
-                        checked=entry.completed
-                        onclick=self.link.callback(move |_| Msg::Toggle(idx))
-                    />
-                    <label ondblclick=self.link.callback(move |_| Msg::ToggleEdit(idx))>{ &entry.description }</label>
-                    <button class="destroy" onclick=self.link.callback(move |_| Msg::Remove(idx)) />
-                </div>
-                { self.view_entry_edit_input((idx, &entry)) }
-            </li>
-        }
-    }
-
-    fn view_entry_edit_input(&self, (idx, entry): (usize, &Entry)) -> Html {
-        if entry.editing {
-            html! {
-                <input
-                    class="edit"
-                    type="text"
-                    ref=self.focus_ref.clone()
-                    value=&self.state.edit_value
-                    onmouseover=self.link.callback(|_| Msg::Focus)
-                    oninput=self.link.callback(|e: InputData| Msg::UpdateEdit(e.value))
-                    onblur=self.link.callback(move |_| Msg::Edit(idx))
-                    onkeypress=self.link.batch_callback(move |e: KeyboardEvent| {
-                        if e.key() == "Enter" { Some(Msg::Edit(idx)) } else { None }
-                    })
-                />
-            }
-        } else {
-            html! { <input type="hidden" /> }
-        }
-    }
-}
-
 fn main() {
-    yew::start_app::<Model>();
+    yew::Renderer::<App>::new().render();
 }

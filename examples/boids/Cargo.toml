@@ -2,11 +2,21 @@
 name = "boids"
 version = "0.1.0"
 authors = ["motoki saito <stmtk13044032@gmail.com>"]
-edition = "2018"
+edition = "2024"
+rust-version.workspace = true
+license = "MIT OR Apache-2.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
-anyhow = "1.0"
-rand = { version = "0.7", features = ["wasm-bindgen"] }
-serde = { version = "1.0", features = ["derive"] }
-yew = { path = "../../yew" }
+anyhow.workspace = true
+getrandom = { workspace = true }
+rand.workspace = true
+serde = { workspace = true, features = ["derive"] }
+yew = { path = "../../packages/yew", features = ["csr"] }
+gloo.workspace = true
+
+[dependencies.web-sys]
+workspace = true
+features = [
+	"HtmlInputElement",
+]

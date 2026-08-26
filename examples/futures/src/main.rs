@@ -1,13 +1,11 @@
-use std::{
-    error::Error,
-    fmt::{self, Debug, Display, Formatter},
-};
-use wasm_bindgen::prelude::*;
+use std::error::Error;
+use std::fmt::{self, Debug, Display, Formatter};
+
 use wasm_bindgen::JsCast;
+use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{Request, RequestInit, RequestMode, Response};
-use yew::{html, Component, ComponentLink, Html, ShouldRender};
-use yewtil::future::LinkFuture;
+use yew::{Component, Context, Html, html};
 
 mod markdown;
 
@@ -43,15 +41,15 @@ pub enum FetchState<T> {
 /// Fetches markdown from Yew's README.md.
 ///
 /// Consult the following for an example of the fetch api by the team behind web_sys:
-/// https://rustwasm.github.io/wasm-bindgen/examples/fetch.html
+/// https://wasm-bindgen.github.io/wasm-bindgen/examples/fetch.html
 async fn fetch_markdown(url: &'static str) -> Result<String, FetchError> {
-    let mut opts = RequestInit::new();
-    opts.method("GET");
-    opts.mode(RequestMode::Cors);
+    let opts = RequestInit::new();
+    opts.set_method("GET");
+    opts.set_mode(RequestMode::Cors);
 
     let request = Request::new_with_str_and_init(url, &opts)?;
 
-    let window = yew::utils::window();
+    let window = gloo::utils::window();
     let resp_value = JsFuture::from(window.fetch_with_request(&request)).await?;
     let resp: Response = resp_value.dyn_into().unwrap();
 
@@ -64,76 +62,70 @@ enum Msg {
     GetMarkdown,
     GetError,
 }
-struct Model {
+struct App {
     markdown: FetchState<String>,
-    link: ComponentLink<Self>,
 }
 
-impl Component for Model {
+impl Component for App {
     type Message = Msg;
     type Properties = ();
 
-    fn create(_props: Self::Properties, link: ComponentLink<Self>) -> Self {
+    fn create(_ctx: &Context<Self>) -> Self {
         Self {
             markdown: FetchState::NotFetching,
-            link,
         }
     }
 
-    fn change(&mut self, _props: Self::Properties) -> ShouldRender {
-        false
-    }
-
-    fn update(&mut self, msg: Self::Message) -> ShouldRender {
+    fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
             Msg::SetMarkdownFetchState(fetch_state) => {
                 self.markdown = fetch_state;
                 true
             }
             Msg::GetMarkdown => {
-                self.link.send_future(async {
+                ctx.link().send_future(async {
                     match fetch_markdown(MARKDOWN_URL).await {
                         Ok(md) => Msg::SetMarkdownFetchState(FetchState::Success(md)),
                         Err(err) => Msg::SetMarkdownFetchState(FetchState::Failed(err)),
                     }
                 });
-                self.link
+                ctx.link()
                     .send_message(Msg::SetMarkdownFetchState(FetchState::Fetching));
                 false
             }
             Msg::GetError => {
-                self.link.send_future(async {
+                ctx.link().send_future(async {
                     match fetch_markdown(INCORRECT_URL).await {
                         Ok(md) => Msg::SetMarkdownFetchState(FetchState::Success(md)),
                         Err(err) => Msg::SetMarkdownFetchState(FetchState::Failed(err)),
                     }
                 });
-                self.link
+                ctx.link()
                     .send_message(Msg::SetMarkdownFetchState(FetchState::Fetching));
                 false
             }
         }
     }
 
-    fn view(&self) -> Html {
-        match &self.markdown {
-            FetchState::NotFetching => html! {
-                <>
-                    <button onclick=self.link.callback(|_| Msg::GetMarkdown)>
+    fn view(&self, ctx: &Context<Self>) -> Html {
+        html! {
+            match &self.markdown {
+                FetchState::NotFetching => {
+                    <button onclick={ctx.link().callback(|_| Msg::GetMarkdown)}>
                         { "Get Markdown" }
                     </button>
-                    <button onclick=self.link.callback(|_| Msg::GetError)>
+                    <button onclick={ctx.link().callback(|_| Msg::GetError)}>
                         { "Get using incorrect URL" }
                     </button>
-                </>
-            },
-            FetchState::Fetching => html! { "Fetching" },
-            FetchState::Success(data) => html! { markdown::render_markdown(&data) },
-            FetchState::Failed(err) => html! { err },
+                }
+                FetchState::Fetching => "Fetching",
+                FetchState::Success(data) => markdown::render_markdown(data),
+                FetchState::Failed(err) => err
+            }
         }
     }
 }
 
 fn main() {
-    yew::start_app::<Model>();
+    yew::Renderer::<App>::new().render();
 }

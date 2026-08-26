@@ -1,195 +1,90 @@
 ######################
 #
 # public tasks:
-# * pr-flow
-# * lint
-# * tests
-# * benchmarks
+# * checks-flow
+#   * lint
+#   * lint-release
+#   * format
+# * test-flow
+#   * test
+#   * doc-test
+#   * website-test
 #
+# packages/yew also contains `clippy-feature-soundness` (requires cargo-hack)
 # Run `cargo make --list-all-steps` for more details.
 #
 ######################
 [config]
 min_version = "0.32.4"
+skip_core_tasks = true
 default_to_workspace = false
 
 [env]
 CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = true
 CARGO_MAKE_CLIPPY_ARGS = "-- --deny=warnings"
+CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = [
+    "examples/*",
+    "tools/*",
+]
 
 [config.modify_core_tasks]
 private = true
 namespace = "core"
 
-[tasks.pr-flow]
-category = "Checks"
-description = "Lint and test"
-run_task = { name = ["lint", "tests"], fork = true }
+# checks
 
 [tasks.lint]
 category = "Checks"
-description = "Check formatting and run Clippy"
-run_task = { name = ["lint-flow", "lint-stdweb"], fork = true }
-
-[tasks.tests]
-category = "Testing"
-description = "Run all tests"
-dependencies = ["tests-setup"]
-env = { CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = ["**/examples/*"] }
-run_task = { name = [
-    "test-flow",
-    "tests-stdweb",
-    "doc-test-flow",
-], fork = true, cleanup_task = "tests-cleanup" }
-
-[tasks.benchmarks]
-category = "Testing"
-description = "Run benchmarks"
-env = { CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = ["**/examples/*"] }
-run_task = { name = "bench-flow", fork = true }
-
-[tasks.lint-flow]
-private = true
-workspace = true
-dependencies = ["core::check-format-flow", "core::clippy-flow"]
-
-[tasks.lint-stdweb]
-private = true
-cwd = "yew-stdweb"
+description = "Runs clippy"
 command = "cargo"
-args = [
-    "make",
-    "--loglevel",
-    "${CARGO_MAKE_LOG_LEVEL}",
-    "--profile",
-    "${CARGO_MAKE_PROFILE}",
-    "lint-flow",
-]
+args = ["clippy", "--", "--deny=warnings"]
 
-[tasks.tests-setup]
-private = true
-script_runner = "@duckscript"
-script = [
-    """
-    test_flags = array --headless --firefox
-    yew_test_features = set wasm_test
+# Needed, because we have some code differences between debug and release builds
+[tasks.lint-release]
+category = "Checks"
+command = "cargo"
+args = ["clippy", "--all-targets", "--release", "--", "--deny=warnings"]
 
-    fn set_httpbin_test_features
-        HTTPBIN_URL = get_env HTTPBIN_URL
-        echo INFO: using ${HTTPBIN_URL} for fetch service tests
-        yew_test_features = set "${yew_test_features},httpbin_test"
-    end
+[tasks.format]
+category = "Checks"
+toolchain = "nightly"
+env = { CARGO_MAKE_RUST_CHANNEL = "nightly" }
 
-    if is_defined HTTPBIN_URL
-        set_httpbin_test_features
-    else
-        # only enable docker if docker executable is available
-        # and --skip-httpbin cli argument not provided to cargo make
-        docker_path = which docker
-        start_docker = is_defined docker_path
-        args_provided = not is_empty ${CARGO_MAKE_TASK_ARGS}
-        if ${args_provided}
-            args = split ${CARGO_MAKE_TASK_ARGS} ;
-            for arg in ${args}
-                if eq ${arg} --skip-httpbin
-                    start_docker = set false
-                    release ${args}
-                end
-            end
-        end
 
-        if ${start_docker}
-            echo Starting httpbin docker image...
-            mkdir ./target
-            cidfile = set ./target/httpbin_container.cid
+[tasks.checks-flow]
+category = "Checks"
+description = "Runs clippy in debug and release mode and format all the code"
+run_task = { name = ["lint", "lint-release", "format"], fork = true }
 
-            # if container already running, stop it
-            if is_file ${cidfile}
-                container_id = readfile ${cidfile}
-                rm ${cidfile}
-                set_env HTTPBIN_CONTAINER_ID ${container_id}
-                cm_run_task tests-cleanup
-            end
-
-            # get local port
-            docker_port = get_env YEW_HTTPBIN_PORT
-            if not is_defined docker_port
-                docker_port = set 7117
-            end
-
-            exec --fail-on-error docker run -d --cidfile ${cidfile} -p "${docker_port}:80" kennethreitz/httpbin
-            container_id = readfile ${cidfile}
-            container_id = trim ${container_id}
-            set_env HTTPBIN_CONTAINER_ID ${container_id}
-
-            set_env HTTPBIN_URL http://localhost:${docker_port}
-            set_httpbin_test_features
-
-            # wait for docker container to boot before running tests
-            if is_defined HTTPBIN_WAIT
-                sleep ${HTTPBIN_WAIT}
-            else
-                sleep 500
-            end
-        else
-            echo "INFO: HTTPBIN_URL isn't set, won't run fetch service tests"
-            echo "      please see the CONTRIBUTING.md file for instructions"
-        end
-    end
-
-    yew_test_flags = array_join ${test_flags} " "
-    echo "running tests with flags: ${yew_test_flags} and features: ${yew_test_features}"
-
-    set_env YEW_TEST_FLAGS ${yew_test_flags}
-    set_env YEW_TEST_FEATURES ${yew_test_features}
-    """,
-]
-
-[tasks.tests-cleanup]
-private = true
-condition = { env_set = ["HTTPBIN_CONTAINER_ID"] }
-ignore_errors = true
-command = "docker"
-args = ["rm", "--force", "${HTTPBIN_CONTAINER_ID}"]
-
-[tasks.tests-stdweb]
-private = true
-extend = "core::wasm-pack-base"
-cwd = "yew-stdweb"
-args = [
-    "test",
-    "@@split(YEW_TEST_FLAGS, )",
-    "--",
-    "--features",
-    "${YEW_TEST_FEATURES}",
-]
-
-[tasks.test-flow]
-private = true
-workspace = true
-dependencies = ["test"]
+# Tests
 
 [tasks.test]
-private = true
 command = "cargo"
 args = ["test", "--all-targets"]
-
-[tasks.doc-test-flow]
-private = true
 workspace = true
-dependencies = ["doc-test"]
 
 [tasks.doc-test]
-private = true
 command = "cargo"
-args = ["test", "--doc"]
-
-[tasks.bench-flow]
-private = true
+args = ["test", "--doc", "--all-features"]
 workspace = true
-dependencies = ["bench"]
 
-[tasks.bench]
-private = true
+[tasks.website-test]
 command = "cargo"
-args = ["bench"]
+args = ["test", "-p", "website-test"]
+
+[tasks.test-flow]
+category = "Testing"
+description = "Run all tests"
+run_task = { name = ["test", "doc-test", "website-test"], fork = true, parallel = true }
+
+# misc
+
+[tasks.generate-change-log]
+category = "Maintainer processes"
+toolchain = "stable"
+command = "cargo"
+args = ["run", "-p", "changelog", "--release", "${@}"]
+
+[tasks.default]
+#run_task = { name = ["checks-flow", "test-flow"], fork = true }
+dependencies = ["checks-flow", "test-flow"]

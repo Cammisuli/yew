@@ -1,0 +1,304 @@
+---
+title: '列表'
+---
+
+import Tabs from '@theme/Tabs'
+import TabItem from '@theme/TabItem'
+
+## 迭代器
+
+从迭代器构建 HTML 有 4 种方法：
+
+<Tabs>
+  <TabItem value="`for` loops" label="`for` 循环">
+主要方法是使用 for 循环，与 Rust 中已有的 for 循环相同，但有一个关键区别：与标准 for 循环不能返回任何内容不同，`html!` 中的 for 循环会被转换为节点列表。
+
+```rust
+use yew::prelude::*;
+
+html! {
+    for i in 0 .. 10 {
+        <span>{i}</span>
+    }
+};
+```
+
+`for` 循环体支持在 html 子节点前书写 Rust 语句。任何带终止符的语句都可以：`let` 绑定、以 `;` 结尾的表达式语句、项定义（`fn`、`struct`、`use` 等）以及带 `;` 的宏调用。
+
+```rust , ignore
+use yew::prelude::*;
+
+html! {
+    for item in items {
+        let label = format!("{}: {}", item.id, item.name);
+        let class = if item.active { "active" } else { "inactive" };
+        <div class={class}>{label}</div>
+    }
+};
+```
+
+`break` 和 `continue` 的作用与普通 Rust 循环相同，会影响生成的节点列表。
+`continue` 会跳过当前迭代而不产生节点，`break` 会提前结束迭代：
+
+```rust
+use yew::prelude::*;
+
+html! {
+    for i in 0..10 {
+        if i % 2 == 0 {
+            continue
+        }
+        if i > 7 {
+            break
+        }
+        <span>{i}</span>
+    }
+};
+```
+
+`break` 和 `continue` 也可以直接作为 match 分支使用，无论带花括号还是不带：
+
+```rust
+use yew::prelude::*;
+
+html! {
+    for i in 0..10 {
+        match i {
+            0 => continue,
+            8.. => break,
+            _ => <span>{i}</span>,
+        }
+    }
+};
+```
+
+循环标签也受支持。`break 'label` 和 `continue 'label` 可以作用于宏外部 Rust 代码中定义的带标签的循环，让你能从宏内部退出外层循环：
+
+```rust , ignore
+use yew::prelude::*;
+
+let mut rendered = Vec::new();
+'outer: for section in sections {
+    rendered.push(html! {
+        for item in section.items {
+            if should_stop(&item) {
+                break 'outer;
+            }
+            <span>{item.name}</span>
+        }
+    });
+}
+```
+
+:::note 限定路径
+
+像 `<Type>::method(...)` 这样的裸限定路径表达式会与 `<Type>` 元素起始标签冲突，因此会被拒绝。有两种解决方法：
+
+- 在末尾加上 `;`，使其成为前置的表达式语句：`<Type>::method(...);`。返回值会被丢弃。
+- 用 `{...}` 包起来，将返回值作为节点使用：`{ <Type>::method(...) }`。
+
+:::
+
+:::caution 在 `if` / `match` / `while` / 外层 `for` 内部使用 `{expr}` 作为 `for` 循环体
+
+如果 `for` 循环体只包含一个裸 `{expr}` 块，在 `html!` 的**最外层**位置可以正常工作，每次迭代渲染一个节点；但同样的代码嵌套在 `if` / `match` 分支 / `while` / 另一个 `for` 体内时会被拒绝，并报告 `mismatched types: expected (), found T`。这两个位置使用的解析策略不同：嵌套位置会先尝试把循环解析为 Rust 语句。如果循环体能完全被 Rust 解析（裸 `{expr}` 块就是这种情况），它就不再被视为 html 控制流。
+
+```rust , ignore
+// 可以编译：for 位于最外层。
+html! {
+    for _ in 0..9 {
+        {my_foo}
+    }
+}
+
+// 无法编译：for 嵌套在 `if` 内部。
+html! {
+    if condition {
+        for _ in 0..9 {
+            {my_foo}
+        }
+    }
+}
+```
+
+要在条件成立时把 `my_foo` 渲染 9 次，请选择以下任一方式：
+
+```rust , ignore
+// 1. 用 html 元素包裹子节点（推荐）。
+html! {
+    if condition {
+        for _ in 0..9 {
+            <span>{my_foo}</span>
+        }
+    }
+}
+
+// 2. 把 for 放进嵌套的 `html!` 顶层。
+html! {
+    if condition {
+        { html! {
+            for _ in 0..9 {
+                {my_foo}
+            }
+        } }
+    }
+}
+
+// 3. 用迭代器配合 `collect::<Html>()` 构建列表。
+html! {
+    if condition {
+        { (0..9).map(|_| html!({my_foo})).collect::<Html>() }
+    }
+}
+```
+
+同样的规则也适用于 `match` 分支、`while` 循环体以及外层 `for` 的循环体。
+
+:::
+
+  </TabItem>
+  <TabItem value="`while` loops" label="`while` 循环">
+`while` 和 `while let` 循环的工作方式与 `for` 相同，也会从循环体中生成节点列表。`for` 循环体中支持的所有语句形式（let 绑定、表达式语句、项、宏）在这里同样可用，外加 `if` 块和 `break` / `continue`。
+
+```rust
+use yew::prelude::*;
+
+let mut items = vec!["a", "b", "c", "skip", "d"].into_iter();
+
+html! {
+    while let Some(item) = items.next() {
+        if item == "skip" {
+            continue
+        }
+        if item.is_empty() {
+            break
+        }
+        <span>{item}</span>
+    }
+};
+```
+
+带条件的普通 `while` 也可以使用：
+
+```rust
+use yew::prelude::*;
+
+let mut counter: i32 = 0;
+
+html! {
+    while counter < 5 {
+        let current = counter;
+        counter += 1;
+        <span>{current}</span>
+    }
+};
+```
+
+  </TabItem>
+  <TabItem value="`for` block" label="`for` 块">
+另一种方法是使用 `for` 关键字，这不是原生的 Rust 语法，而是由 HTML 宏用于输出显示迭代器所需的代码。
+当迭代器已经计算好，只需要将其传递给宏时，这种方法比第一种更好。
+
+```rust
+use yew::prelude::*;
+
+let items = (1..=10).collect::<Vec<_>>();
+
+html! {
+    <ul class="item-list">
+        { for items.iter() }
+    </ul>
+};
+```
+
+  </TabItem>
+  <TabItem value="`collect` method" label="`collect` 方法">
+
+最后一种方法是在迭代器的最终转换上调用 `collect::<Html>()`，它返回一个 Yew 可以显示的列表。
+
+```rust
+use yew::prelude::*;
+
+let items = (1..=10).collect::<Vec<_>>();
+
+html! {
+    <ul class="item-list">
+        { items.iter().collect::<Html>() }
+    </ul>
+};
+```
+
+  </TabItem>
+</Tabs>
+
+## 键 (Key) 列表
+
+键 (Key) 列表是一个优化的列表，其中**所有**子元素都有键。
+`key` 是 Yew 提供的一个特殊属性，它为 HTML 元素或组件提供一个唯一标识符，用于 Yew 内部的优化。
+
+:::caution
+Key 只需要在每个列表中是唯一的，与 HTML `id` 的全局唯一性相反。它不应该依赖于列表的顺序。
+:::
+
+始终建议为列表添加键 (key)。
+
+可以通过将唯一的 `String`、`str` 或整数传递给特殊的 `key` 属性来添加键：
+
+```rust , ignore
+use yew::prelude::*;
+
+let names = vec!["Sam","Bob","Ray"]
+
+html! {
+    <div id="introductions">
+        {
+            names.into_iter().map(|name| {
+                html!{<div key={name}>{ format!("Hello, I'am {}!",name) }</div>}
+            }).collect::<Html>()
+        }
+    </div>
+};
+
+```
+
+### 性能优化
+
+我们有一个[带有键 (keys) 的列表示例](https://github.com/yewstack/yew/tree/master/examples/keyed_list)可以让你测试性能上的改进，这里是一个简单的测试流程：
+
+1. 进入[在线演示](https://examples.yew.rs/keyed_list)
+2. 添加 500 个元素
+3. 禁用键
+4. 反转列表
+5. 查看 "最后一次渲染花费了 Xms"（在撰写本文时，大约为 60ms）
+6. 启用键
+7. 再次反转列表
+8. 查看 "最后一次渲染花费了 Xms"（在撰写本文时，大约为 30ms）
+
+截至撰写本文时，对于 500 个组件，速度提高了 2 倍。
+
+### 原理解释
+
+通常，当你迭代时，只需要在每个列表项上添加一个键，数据的顺序可能会发生变化。
+在重新渲染列表时，它用于加速协调过程。
+
+如果没有键，假设你迭代 `["bob", "sam", "rob"]`，最终得到的 HTML 如下：
+
+```html
+<div id="bob">My name is Bob</div>
+<div id="sam">My name is Sam</div>
+<div id="rob">My name is rob</div>
+```
+
+然后在下一次渲染时，如果你的列表更改为 `["bob", "rob"]`，Yew 可以删除 id="rob" 的元素，并将 id="sam" 更新为 id="rob"。
+
+如果你为每个元素添加了一个键，初始 HTML 将保持不变，但在使用修改后的列表 `["bob", "rob"]` 进行渲染后，Yew 只会删除第二个 HTML 元素，而其他元素则保持不变，因为它可以使用键将它们关联起来。
+
+如果你遇到了一个从一个组件切换到另一个组件的 bug/"feature"，但两者都有一个 div 作为最高渲染元素。
+Yew 在这些情况下会重用已渲染的 HTML div 作为优化。
+如果你需要该 div 被重新创建而不是被重用，那么你可以添加不同的键，它们将不会被重用。
+
+## 进一步阅读
+
+- [TodoMVC 示例](https://github.com/yewstack/yew/tree/master/examples/todomvc)
+- [带有键 (keys) 的列表示例](https://github.com/yewstack/yew/tree/master/examples/keyed_list)
+- [路由示例](https://github.com/yewstack/yew/tree/master/examples/router)

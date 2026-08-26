@@ -2,8 +2,12 @@
 name = "counter"
 version = "0.1.1"
 authors = ["Denis Kolodin <deniskolodin@gmail.com>"]
-edition = "2018"
+edition = "2024"
+rust-version.workspace = true
+license = "MIT OR Apache-2.0"
 
 [dependencies]
-js-sys = "0.3"
-yew = { path = "../../yew" }
+gloo.workspace = true
+js-sys.workspace = true
+yew = { path = "../../packages/yew", features = ["csr"] }
+wasm-bindgen.workspace = true

@@ -2,6 +2,9 @@ name: Publish Examples
 on:
   push:
     branches: [master]
+    paths:
+      - 'tools/build-examples/**'
+      - 'examples/**'
 
 jobs:
   publish:
@@ -9,58 +12,39 @@ jobs:
     env:
       # leave empty for /
       PUBLIC_URL_PREFIX: ""
+      RUSTUP_TOOLCHAIN: nightly
 
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          target: wasm32-unknown-unknown
-          override: true
-          profile: minimal
+      - uses: actions/checkout@v6
 
-      - uses: actions/cache@v2
+      - name: Setup toolchain
+        uses: dtolnay/rust-toolchain@master
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: cargo-${{ runner.os }}-${{ hashFiles('**/Cargo.toml') }}
-          restore-keys: |
-            cargo-${{ runner.os }}-
+          toolchain: nightly
+          targets: wasm32-unknown-unknown
+          components: rust-src
 
-      - name: Install trunk
-        run: |
-          brew install trunk
-          cargo install wasm-bindgen-cli
+      - uses: Swatinem/rust-cache@v2
+
+      - uses: jetli/trunk-action@v0.5.1
+        with:
+          version: 'latest'
+
+      - name: Get latest wasm-opt version
+        id: wasm-opt
+        uses: pozetroninc/github-action-get-latest-release@master
+        with:
+          repository: WebAssembly/binaryen
+          excludes: prerelease, draft
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build examples
-        run: |
-          output="$(pwd)/dist"
-
-          for path in examples/*; do
-            if [[ ! -d $path ]]; then
-              continue
-            fi
-
-            example=$(basename "$path")
-
-            # multi_thread doesn't work yet. See <https://github.com/thedodd/trunk/issues/40>.
-            if [[ "$example" == "multi_thread" ]]; then
-              continue
-            fi
-
-            echo "building: $example"
-            (
-              cd "$path"
-              dist_dir="$output/$example"
-
-              trunk build --release --dist "$dist_dir" --public-url "$PUBLIC_URL_PREFIX/$example"
-            )
-          done
+        run: cargo run -p build-examples --bin build-examples
+        env:
+          LATEST_WASM_OPT_VERSION: ${{ steps.wasm-opt.outputs.release }}
 
       - name: Deploy to Firebase
-        uses: siku2/action-hosting-deploy@v0
+        uses: siku2/action-hosting-deploy@v1
         with:
           repoToken: "${{ secrets.GITHUB_TOKEN }}"
           firebaseToken: "${{ secrets.FIREBASE_TOKEN }}"

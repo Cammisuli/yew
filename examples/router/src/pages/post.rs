@@ -1,10 +1,9 @@
-use crate::{
-    content,
-    generator::Generated,
-    switch::{AppAnchor, AppRoute},
-};
 use content::PostPart;
 use yew::prelude::*;
+use yew_router::prelude::*;
+
+use crate::generator::Generated;
+use crate::{Route, content};
 
 #[derive(Clone, Debug, Eq, PartialEq, Properties)]
 pub struct Props {
@@ -18,58 +17,62 @@ impl Component for Post {
     type Message = ();
     type Properties = Props;
 
-    fn create(props: Self::Properties, _link: ComponentLink<Self>) -> Self {
+    fn create(ctx: &Context<Self>) -> Self {
         Self {
-            post: content::Post::generate_from_seed(props.seed),
+            post: content::Post::generate_from_seed(ctx.props().seed),
         }
     }
 
-    fn update(&mut self, _msg: Self::Message) -> ShouldRender {
-        unimplemented!()
+    fn changed(&mut self, ctx: &Context<Self>, _old_props: &Self::Properties) -> bool {
+        self.post = content::Post::generate_from_seed(ctx.props().seed);
+        true
     }
 
-    fn change(&mut self, props: Self::Properties) -> ShouldRender {
-        if self.post.seed == props.seed {
-            false
-        } else {
-            self.post = content::Post::generate_from_seed(props.seed);
-            true
-        }
-    }
-
-    fn view(&self) -> Html {
+    fn view(&self, _ctx: &Context<Self>) -> Html {
         let Self { post } = self;
 
-        let keywords = post
-            .keywords
-            .iter()
-            .map(|keyword| html! { <span class="tag is-info">{ keyword }</span> });
+        // don't show hero for the first section
+        let mut show_hero = false;
 
         html! {
-            <>
-                <section class="hero is-medium is-light has-background">
-                    <img class="hero-background is-transparent" src=post.image_url />
-                    <div class="hero-body">
-                        <div class="container">
-                            <h1 class="title">
-                                { &post.title }
-                            </h1>
-                            <h2 class="subtitle">
-                                { "by " }
-                                <AppAnchor classes="has-text-weight-semibold" route=AppRoute::Author(post.author.seed)>
-                                    { &post.author.name }
-                                </AppAnchor>
-                            </h2>
-                            <div class="tags">
-                                { for keywords }
-                            </div>
+            <section class="hero is-medium is-light has-background">
+                <img alt="The hero's background" class="hero-background is-transparent" src={post.meta.image_url.clone()} />
+                <div class="hero-body">
+                    <div class="container">
+                        <h1 class="title">
+                            { &post.meta.title }
+                        </h1>
+                        <h2 class="subtitle">
+                            { "by " }
+                            <Link<Route> classes={classes!("has-text-weight-semibold")} to={Route::Author { id: post.meta.author.seed }}>
+                                { &post.meta.author.name }
+                            </Link<Route>>
+                        </h2>
+                        <div class="tags">
+                            for keyword in &post.meta.keywords {
+                                <span class="tag is-info">{ keyword }</span>
+                            }
                         </div>
                     </div>
-                </section>
-                <div class="section container">
-                    { self.view_content() }
                 </div>
-            </>
+            </section>
+            <div class="section container">
+                for part in &post.content {
+                    match part {
+                        PostPart::Section(section) => {
+                            let rendered = self.render_section(section, show_hero);
+                            // show hero between sections
+                            show_hero = true;
+                            { rendered }
+                        }
+                        PostPart::Quote(quote) => {
+                            // don't show hero after a quote
+                            show_hero = false;
+                            { self.render_quote(quote) }
+                        }
+                    }
+                }
+            </div>
         }
     }
 }
@@ -79,14 +82,14 @@ impl Post {
             <article class="media block box my-6">
                 <figure class="media-left">
                     <p class="image is-64x64">
-                        <img src=quote.author.image_url loading="lazy" />
+                        <img alt="The author's profile" src={quote.author.image_url.clone()} loading="lazy" />
                     </p>
                 </figure>
                 <div class="media-content">
                     <div class="content">
-                        <AppAnchor classes="is-size-5" route=AppRoute::Author(quote.author.seed)>
+                        <Link<Route> classes={classes!("is-size-5")} to={Route::Author { id: quote.author.seed }}>
                             <strong>{ &quote.author.name }</strong>
-                        </AppAnchor>
+                        </Link<Route>>
                         <p class="is-family-secondary">
                             { &quote.content }
                         </p>
@@ -99,7 +102,7 @@ impl Post {
     fn render_section_hero(&self, section: &content::Section) -> Html {
         html! {
             <section class="hero is-dark has-background mt-6 mb-3">
-                <img class="hero-background is-transparent" src=section.image_url loading="lazy" />
+                <img alt="This section's image" class="hero-background is-transparent" src={section.image_url.clone()} loading="lazy" />
                 <div class="hero-body">
                     <div class="container">
                         <h2 class="subtitle">{ &section.title }</h2>
@@ -110,41 +113,17 @@ impl Post {
     }
 
     fn render_section(&self, section: &content::Section, show_hero: bool) -> Html {
-        let hero = if show_hero {
-            self.render_section_hero(section)
-        } else {
-            html! {}
-        };
-        let paragraphs = section.paragraphs.iter().map(|paragraph| {
-            html! {
-                <p>{ paragraph }</p>
-            }
-        });
         html! {
             <section>
-                { hero }
-                <div>{ for paragraphs }</div>
+                if show_hero {
+                    self.render_section_hero(section)
+                }
+                <div>
+                    for paragraph in &section.paragraphs {
+                        <p>{ paragraph }</p>
+                    }
+                </div>
             </section>
         }
-    }
-
-    fn view_content(&self) -> Html {
-        // don't show hero for the first section
-        let mut show_hero = false;
-
-        let parts = self.post.content.iter().map(|part| match part {
-            PostPart::Section(section) => {
-                let html = self.render_section(section, show_hero);
-                // show hero between sections
-                show_hero = true;
-                html
-            }
-            PostPart::Quote(quote) => {
-                // don't show hero after a quote
-                show_hero = false;
-                self.render_quote(quote)
-            }
-        });
-        html! { for parts }
     }
 }

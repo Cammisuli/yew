@@ -1,43 +1,70 @@
 [workspace]
 members = [
-  "yew",
-  "yew-components",
-  "yew-functional",
-  "yew-macro",
-  "yew-validation",
-
-  # Router
-  "yew-router",
-  "yew-router-macro",
-  "yew-router-route-parser",
-
-  # Utilities
-  "yewtil",
-  "yewtil-macro",
-
-  # dsl
-  "yew-dsl",
-
-  # Examples
-  "examples/boids",
-  "examples/counter",
-  "examples/crm",
-  "examples/dashboard",
-  "examples/file_upload",
-  "examples/futures",
-  "examples/game_of_life",
-  "examples/inner_html",
-  "examples/js_callback",
-  "examples/keyed_list",
-  "examples/mount_point",
-  "examples/multi_thread",
-  "examples/nested_list",
-  "examples/node_refs",
-  "examples/pub_sub",
-  "examples/router",
-  "examples/store",
-  "examples/timer",
-  "examples/todomvc",
-  "examples/two_apps",
-  "examples/webgl",
+    "packages/*",
+    "tools/*",
+    "examples/*",
 ]
+exclude = ["examples/.cargo"]
+default-members = [
+    "packages/*",
+]
+resolver = "3"
+
+[workspace.package]
+rust-version = "1.85"
+
+[profile.release]
+lto = true
+codegen-units = 1
+panic = "abort"
+opt-level = "z"
+
+[profile.bench]
+lto = true
+codegen-units = 1
+opt-level = 3
+
+[workspace.lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = [
+    "cfg(documenting)",
+    "cfg(verbose_tests)",
+    "cfg(yew_lints)",
+    "cfg(nightly_yew)",
+    "cfg(wasm_bindgen_unstable_test_coverage)"
+]}
+[workspace.dependencies]
+tokio = { version = "1.52.3" }
+implicit-clone = { version = "0.6.0" }
+proc-macro2 = "1"
+quote = "1"
+syn = { version = "2" }
+trybuild = "1"
+clap = { version = "4", features = ["derive"] }
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+wasm-bindgen-test = "0.3"
+js-sys = "0.3"
+web-sys = "0.3.70"
+gloo = "0.12"
+serde = "1"
+serde_json = "1"
+futures = { version = "0.3", default-features = false }
+log = "0.4"
+wasm-logger = "0.2"
+tracing-web = "0.1"
+tracing-subscriber = { version = "0.3", features = ["fmt"] }
+rand = "0.10"
+getrandom = { version = "0.4", features = ["wasm_js"] }
+getrandom_03 = { package = "getrandom", version = "0.3", features = ["wasm_js"] }
+instant = { version = "0.1", features = ["wasm-bindgen"] }
+rustversion = "1"
+strum = "0.28"
+strum_macros = "0.28"
+anyhow = "1"
+chrono = "0.4"
+thiserror = "2.0"
+bincode = { version = "2.0.0-rc.3", features = ["serde"] }
+reqwest = "0.13"
+axum = "0.8"
+# 4.13 requires rustc > 1.85
+actix-web = "<4.13"

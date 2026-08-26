@@ -1,0 +1,33 @@
+---
+title: '空標籤 (Fragments)'
+---
+
+`html!` 巨集可以直接接受多個根節點。在根層級**不需要**使用 fragment 包裝 (`<>...</>`)：
+
+```rust
+use yew::prelude::*;
+
+html! {
+    <div></div>
+    <p></p>
+};
+```
+
+## 帶 key 的 fragment
+
+fragment 語法僅剩的合理用途是**帶 key 的** fragment。
+
+```rust
+use yew::prelude::*;
+
+html! {
+    // .. siblings ..
+    <key="group-a">
+        <span>{"a1"}</span>
+        <span>{"a2"}</span>
+    </>
+    // .. siblings ..
+};
+```
+
+在某些情況下，帶 key 的 fragment 有助於差分效能和節點持久化。

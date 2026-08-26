@@ -1,14 +1,21 @@
 [package]
 name = "router"
 version = "0.1.0"
-edition = "2018"
+edition = "2024"
+rust-version.workspace = true
+license = "MIT OR Apache-2.0"
 
 [dependencies]
-instant = { version = "0.1", features = ["wasm-bindgen"] }
-lipsum = "0.7"
-log = "0.4"
-rand = { version = "0.7", features = ["small_rng", "wasm-bindgen"] }
-wasm-logger = "0.2"
-yew = { path = "../../yew" }
-yew-router = { path = "../../yew-router" }
-yewtil = { path = "../../yewtil" }
+function_router = { path = "../function_router" }
+instant = { workspace = true }
+lipsum = { version = "0.9.1", git = "https://github.com/mgeisler/lipsum.git", rev = "233e48a" }
+log.workspace = true
+getrandom = { workspace = true }
+getrandom_03 = { workspace = true }
+rand.workspace = true
+rand_09 = { package = "rand", version = "0.9", features = ["small_rng"] }
+wasm-logger.workspace = true
+yew = { path = "../../packages/yew", features = ["csr"] }
+yew-router = { path = "../../packages/yew-router" }
+serde = { workspace = true, features = ["derive"] }
+gloo.workspace = true
